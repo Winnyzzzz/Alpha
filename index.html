@@ -418,4 +418,50 @@
     }
 
     // --- UI HELPERS ---
-    window.toggleCal = function() { const el=document.getElementById
+    window.toggleCal = function() { const el=document.getElementById('calendarSection'); el.style.display=(el.style.display==='block')?'none':'block'; }
+    window.changeMonth = function(s) { window.currentDate.setMonth(window.currentDate.getMonth()+s); window.renderCal(); }
+    
+    window.renderCal = function() {
+        const y = window.currentDate.getFullYear(); const m = window.currentDate.getMonth();
+        document.getElementById('monthDisplay').innerText = `${m+1}/${y}`;
+        const cal = document.getElementById('calendar'); cal.innerHTML = '';
+        ['CN','T2','T3','T4','T5','T6','T7'].forEach(d => cal.innerHTML+=`<div class="day-header">${d}</div>`);
+        
+        const firstDay = new Date(y, m, 1).getDay(); const days = new Date(y, m+1, 0).getDate();
+        for(let i=0; i<firstDay; i++) cal.innerHTML += `<div></div>`;
+
+        for(let i=1; i<=days; i++) {
+            const k = `${y}-${m+1}-${i}`;
+            const d = window.dataStore[k] || {in:0,out:0};
+            const isToday = (new Date().toDateString() === new Date(y,m,i).toDateString()) ? 'today' : '';
+            let htmlVal = '';
+            if(d.in > 0) htmlVal += `<span class="val-txt c-green">+${parseFloat(d.in)}</span>`;
+            if(d.out > 0) htmlVal += `<span class="val-txt c-red">-${parseFloat(d.out)}</span>`;
+            cal.innerHTML += `<div class="day-card ${isToday}" onclick="openMod('${k}')"><div style="font-size:10px;font-weight:700;color:#ccc;">${i}</div><div>${htmlVal}</div></div>`;
+        }
+    }
+
+    let selKey=null;
+    window.openMod = function(k) {
+        selKey=k; const val=window.dataStore[k]||{in:0,out:0};
+        document.getElementById('modalIn').value=val.in||''; document.getElementById('modalOut').value=val.out||'';
+        document.getElementById('inputModal').style.display='flex';
+    }
+    window.closeModal = function() { document.getElementById('inputModal').style.display='none'; }
+    window.saveModal = function() {
+        pushUndo();
+        const inc=parseFloat(document.getElementById('modalIn').value)||0;
+        const exp=parseFloat(document.getElementById('modalOut').value)||0;
+        if(inc==0 && exp==0) delete window.dataStore[selKey];
+        else window.dataStore[selKey]={in:inc, out:exp};
+        syncToCloud(); closeModal();
+    }
+    window.restoreData = function() {
+        if(confirm("Khôi phục dữ liệu gốc?")) { pushUndo(); window.dataStore={...SAMPLE_DATA}; syncToCloud(); }
+    }
+    function showStatus(show) { document.getElementById('statusIndicator').style.opacity = show ? 1 : 0; }
+
+    window.renderCal();
+</script>
+</body>
+</html>
