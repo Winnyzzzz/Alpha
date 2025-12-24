@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản Lý Tài Chính Online</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
     <style>
         :root {
             --glass: rgba(255, 255, 255, 0.95);
@@ -55,16 +58,20 @@
         .modern-input:focus { border-color: #0984e3; }
 
         /* BUTTONS */
-        .quick-bar { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+        .quick-bar { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
         .btn {
             border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;
-            font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 1; transition: 0.2s;
+            font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 1; transition: 0.2s; white-space: nowrap;
         }
         .btn:active { transform: scale(0.96); }
         .btn-blue { background: #0984e3; color: white; }
         .btn-flash { background: #fdcb6e; color: #d35400; }
         .btn-undo { background: #b2bec3; color: white; opacity: 0.5; pointer-events: none; }
         .btn-undo.active { opacity: 1; pointer-events: auto; background: #636e72; }
+
+        /* 2. STYLE CHO NÚT EXCEL MỚI */
+        .btn-excel { background: #27ae60; color: white; }
+        .btn-excel:hover { background: #219150; }
 
         /* CALENDAR */
         .toggle-bar {
@@ -90,13 +97,11 @@
         .c-green { color: var(--green); }
         .c-red { color: var(--red); }
         
-        /* Loading Status */
         #statusIndicator {
             position: fixed; bottom: 10px; right: 10px; font-size: 10px; 
             background: #2d3436; color: white; padding: 5px 10px; border-radius: 20px; opacity: 0; transition: opacity 0.5s;
         }
 
-        /* MODAL */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center;
@@ -130,14 +135,18 @@
 
     <div class="glass-card">
         <div style="display:flex; gap:5px;">
-            <input type="number" id="quickIn" class="modern-input" placeholder="" style="border-color: #55efc4;">
-            <input type="number" id="quickOut" class="modern-input" placeholder="" style="border-color: #fab1a0;">
+            <input type="number" id="quickIn" class="modern-input" placeholder="+Thu" style="border-color: #55efc4;">
+            <input type="number" id="quickOut" class="modern-input" placeholder="-Chi" style="border-color: #fab1a0;">
         </div>
         
         <div class="quick-bar">
             <button class="btn btn-blue" onclick="saveQuick()">Lưu</button>
             <button class="btn btn-flash" onclick="spend10()">⚡ 10$</button>
             <button id="btnUndo" class="btn btn-undo" onclick="execUndo()">↩ Hoàn tác</button>
+        </div>
+        
+        <div class="quick-bar">
+            <button class="btn btn-excel" onclick="exportToExcel()">📊 Tải file Excel</button>
         </div>
     </div>
 
@@ -177,28 +186,24 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // -----------------------------------------------------------
-    // ⚠️ BẠN HÃY DÁN CONFIG CỦA BẠN VÀO KHU VỰC BÊN DƯỚI ⚠️
-    // -----------------------------------------------------------
+    // CONFIG CỦA BẠN ĐÃ ĐƯỢC GIỮ NGUYÊN
     const firebaseConfig = {
-  apiKey: "AIzaSyBk5BR4mtmv1Mcj4gYrbCKLwNiC5fhKlj4",
-  authDomain: "thu-nhap-6be80.firebaseapp.com",
-  databaseURL: "https://thu-nhap-6be80-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "thu-nhap-6be80",
-  storageBucket: "thu-nhap-6be80.firebasestorage.app",
-  messagingSenderId: "482191171526",
-  appId: "1:482191171526:web:358e486e9d28f194469cc7",
-  measurementId: "G-0B436SXQ0P"
-};
+      apiKey: "AIzaSyBk5BR4mtmv1Mcj4gYrbCKLwNiC5fhKlj4",
+      authDomain: "thu-nhap-6be80.firebaseapp.com",
+      databaseURL: "https://thu-nhap-6be80-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "thu-nhap-6be80",
+      storageBucket: "thu-nhap-6be80.firebasestorage.app",
+      messagingSenderId: "482191171526",
+      appId: "1:482191171526:web:358e486e9d28f194469cc7",
+      measurementId: "G-0B436SXQ0P"
+    };
 
-    // --- KHỞI TẠO FIREBASE ---
     let app, db;
     try {
         app = initializeApp(firebaseConfig);
         db = getDatabase(app);
     } catch(e) {
-        console.error("Chưa cấu hình Firebase đúng cách!");
-        alert("Vui lòng mở file code và dán Firebase Config vào dòng 340!");
+        console.error("Lỗi khởi tạo Firebase");
     }
 
     // --- BIẾN TOÀN CỤC ---
@@ -222,10 +227,9 @@
         "2025-12-31": { in: 0, out: 10 }
     };
 
-    // --- LẮNG NGHE DỮ LIỆU TỪ CLOUD ---
+    // --- LẮNG NGHE DỮ LIỆU ---
     if(db) {
         showStatus(true);
-        // Nghe thay đổi cấu hình
         onValue(ref(db, 'config'), (snap) => {
             const val = snap.val();
             if(val) {
@@ -235,64 +239,40 @@
                 updateCalculations();
             }
         });
-
-        // Nghe thay đổi dữ liệu chính
         onValue(ref(db, 'data'), (snap) => {
             const val = snap.val();
-            if(val) {
-                window.dataStore = val;
-            } else {
-                // Nếu cloud trống trơn (lần đầu chạy), nạp mẫu
-                window.dataStore = {...SAMPLE_DATA};
-                syncToCloud();
-            }
-            updateCalculations();
-            renderCal();
-            showStatus(false);
+            if(val) window.dataStore = val;
+            else { window.dataStore = {...SAMPLE_DATA}; syncToCloud(); }
+            updateCalculations(); renderCal(); showStatus(false);
         });
     }
 
-    // --- HÀM ĐỒNG BỘ ---
-    function syncToCloud() {
-        if(!db) return;
-        showStatus(true);
-        set(ref(db, 'data'), window.dataStore);
-    }
-
-    function syncConfig() {
-        if(!db) return;
-        set(ref(db, 'config'), window.configStore);
-    }
+    function syncToCloud() { if(!db) return; showStatus(true); set(ref(db, 'data'), window.dataStore); }
+    function syncConfig() { if(!db) return; set(ref(db, 'config'), window.configStore); }
 
     window.saveConfig = function() {
         window.configStore.cap = parseFloat(document.getElementById('initialCapital').value) || 0;
         window.configStore.rate = parseFloat(document.getElementById('exchangeRate').value) || 27000;
-        syncConfig();
-        updateCalculations();
+        syncConfig(); updateCalculations();
     }
 
-    // --- LOGIC GIAO DIỆN ---
     function updateCalculations() {
         let tIn = 0, tOut = 0;
         for (let k in window.dataStore) {
             tIn += parseFloat(window.dataStore[k].in) || 0;
             tOut += parseFloat(window.dataStore[k].out) || 0;
         }
-        
         const profit = tIn - tOut;
         const total = window.configStore.cap + profit;
         const rate = window.configStore.rate;
 
-        // Hiển thị Tổng
         document.getElementById('totalBalanceDisplay').innerText = total.toLocaleString('en-US', {maximumFractionDigits: 2});
         document.getElementById('vndBalanceDisplay').innerText = (total * rate).toLocaleString('vi-VN', {maximumFractionDigits:0}) + ' ₫';
         
-        // Hiển thị Lãi
         const pBadge = document.getElementById('profitBadge');
         pBadge.innerText = `Lãi: ${(profit>0?'+':'') + profit.toLocaleString()}`;
         pBadge.className = profit < 0 ? 'badge-info bg-loss' : 'badge-info bg-profit';
 
-        // Hiển thị Lãi VND (NEW)
         const pVndBadge = document.getElementById('vndProfitBadge');
         pVndBadge.innerText = `≈ ${(profit * rate).toLocaleString('vi-VN', {maximumFractionDigits:0})} ₫`;
         pVndBadge.className = profit < 0 ? 'badge-info bg-loss' : 'badge-info bg-vnd';
@@ -308,8 +288,7 @@
     window.execUndo = function() {
         if(window.undoStack.length > 0) {
             window.dataStore = window.undoStack.pop();
-            syncToCloud();
-            renderUndoBtn();
+            syncToCloud(); renderUndoBtn();
         }
     }
 
@@ -339,23 +318,47 @@
         const inc = parseFloat(document.getElementById('quickIn').value)||0;
         const exp = parseFloat(document.getElementById('quickOut').value)||0;
         if(inc==0 && exp==0) return;
-        
         pushUndo();
         const k = getToday();
         const cur = window.dataStore[k] || {in:0,out:0};
         window.dataStore[k] = { in: parseFloat(cur.in) + inc, out: parseFloat(cur.out) + exp };
-        
         document.getElementById('quickIn').value = '';
         document.getElementById('quickOut').value = '';
         syncToCloud();
     }
 
-    window.restoreData = function() {
-        if(confirm("Dữ liệu trên Cloud sẽ bị ghi đè bằng dữ liệu gốc T12?")) {
-            pushUndo();
-            window.dataStore = {...window.dataStore, ...SAMPLE_DATA};
-            syncToCloud();
+    // --- 4. HÀM XUẤT EXCEL (NEW) ---
+    window.exportToExcel = function() {
+        if (!window.dataStore || Object.keys(window.dataStore).length === 0) {
+            alert("Chưa có dữ liệu để xuất!");
+            return;
         }
+
+        const rate = window.configStore.rate;
+        // Chuẩn bị tiêu đề
+        const data = [
+            ["BÁO CÁO TÀI CHÍNH"],
+            ["Ngày xuất:", new Date().toLocaleDateString('vi-VN')],
+            ["Tỷ giá:", rate],
+            [], // Dòng trống
+            ["Ngày", "Thu ($)", "Chi ($)", "Lợi nhuận ($)", "Quy đổi (VND)"]
+        ];
+
+        // Sắp xếp ngày tháng
+        const keys = Object.keys(window.dataStore).sort((a,b) => new Date(a) - new Date(b));
+
+        keys.forEach(key => {
+           const item = window.dataStore[key];
+           const profit = (parseFloat(item.in)||0) - (parseFloat(item.out)||0);
+           const vnd = profit * rate;
+           data.push([key, item.in, item.out, profit, vnd]);
+        });
+
+        // Tạo sheet và tải về
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "ChiTieu");
+        XLSX.writeFile(wb, "BaoCaoTaiChinh.xlsx");
     }
 
     // --- CALENDAR RENDER ---
@@ -416,11 +419,18 @@
         syncToCloud(); closeModal();
     }
 
+    window.restoreData = function() {
+        if(confirm("Dữ liệu trên Cloud sẽ bị ghi đè bằng dữ liệu gốc T12?")) {
+            pushUndo();
+            window.dataStore = {...window.dataStore, ...SAMPLE_DATA};
+            syncToCloud();
+        }
+    }
+
     function showStatus(show) {
         document.getElementById('statusIndicator').style.opacity = show ? 1 : 0;
     }
 
-    // Init Render
     window.renderCal();
 </script>
 </body>
