@@ -45,7 +45,6 @@
         .balance-label { font-size: 11px; text-transform: uppercase; color: var(--text-sub); font-weight: 700; letter-spacing: 0.5px; }
         
         .balance-total { font-size: 28px; font-weight: 700; color: var(--dark); margin: 0; line-height: 1.2; }
-        /* Đã xóa class balance-sub ở đây */
         
         .alpha-box {
             background: rgba(108, 92, 231, 0.1); padding: 10px 15px; border-radius: 12px;
@@ -133,7 +132,7 @@
             <div class="balance-group">
                 <div class="balance-label">TỔNG SỐ DƯ (BANK + Mi11 + K60 + N7)</div>
                 <div class="balance-total" id="totalBalanceVND">0 ₫</div>
-                </div>
+            </div>
 
             <div class="alpha-box">
                 <div class="balance-label" style="color: var(--purple)">TỔNG TỪ ALPHA (VỐN + LÃI)</div>
@@ -323,14 +322,17 @@
         // 3. Tính TỔNG ALPHA (Vốn Alpha + Lãi) * Rate
         const alphaTotalVND = (alpha + profitUSD) * rate;
 
+        // 4. Tính Lãi quy đổi VND
+        const profitVND = profitUSD * rate;
+
         // HIỂN THỊ
         document.getElementById('totalBalanceVND').innerText = totalBalanceVND.toLocaleString('vi-VN') + ' ₫';
-        // Đã xóa dòng hiển thị phụ ở đây
         
         document.getElementById('alphaTotalVND').innerText = alphaTotalVND.toLocaleString('vi-VN') + ' ₫';
         
+        // Cập nhật Badge Lãi Ròng
         const pBadge = document.getElementById('profitBadge');
-        pBadge.innerText = `Lãi ròng: ${(profitUSD>0?'+':'') + profitUSD.toLocaleString('en-US')} $`;
+        pBadge.innerText = `Lãi ròng: ${(profitUSD>0?'+':'') + profitUSD.toLocaleString('en-US')} $ (≈ ${profitVND.toLocaleString('vi-VN')} ₫)`;
         pBadge.className = profitUSD < 0 ? 'profit-badge neg' : 'profit-badge';
     }
 
