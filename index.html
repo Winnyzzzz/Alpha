@@ -130,6 +130,396 @@
 
     <div class="glass-card">
         <div style="display:flex; gap:5px;">
+            <input type="number" id="quickIn" class="modern-input" placeholder="" style="border-color: #55efc4;">
+            <input type="number" id="quickOut" class="modern-input" placeholder="" style="border-color: #fab1a0;">
+        </div>
+        
+        <div class="quick-bar">
+            <button class="btn btn-blue" onclick="saveQuick()">Lưu</button>
+            <button class="btn btn-flash" onclick="spend10()">⚡ 10$</button>
+            <button id="btnUndo" class="btn btn-undo" onclick="execUndo()">↩ Hoàn tác</button>
+        </div>
+    </div>
+
+    <div class="toggle-bar" onclick="toggleCal()">📅 Chạm để mở Lịch Sử</div>
+
+    <div id="calendarSection">
+        <div class="glass-card" style="padding: 10px;">
+            <div class="calendar-header">
+                <button class="cal-nav" onclick="changeMonth(-1)">❮</button>
+                <span style="font-weight:700; font-size:14px;" id="monthDisplay">12/2025</span>
+                <button class="cal-nav" onclick="changeMonth(1)">❯</button>
+            </div>
+            
+            <div style="text-align:right; margin-bottom:5px;">
+                <small onclick="restoreData()" style="color:#0984e3; cursor:pointer; font-size:10px;">🔄 Khôi phục dữ liệu gốc</small>
+            </div>
+
+            <div class="calendar-grid" id="calendar"></div>
+        </div>
+    </div>
+
+</div>
+
+<div id="statusIndicator">Đang đồng bộ...</div>
+
+<div class="modal-overlay" id="inputModal">
+    <div class="modal-content">
+        <h4 id="modalTitle" style="margin-top:0; text-align:center;">Sửa giao dịch</h4>
+        <input type="number" id="modalIn" class="modern-input" placeholder="Thu ($)" style="margin-bottom:10px;">
+        <input type="number" id="modalOut" class="modern-input" placeholder="Chi ($)" style="margin-bottom:15px;">
+        <button class="btn btn-blue" onclick="saveModal()">Cập nhật</button>
+        <button class="btn" style="width:100%; margin-top:5px; background:#dfe6e9;" onclick="closeModal()">Đóng</button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // -----------------------------------------------------------
+    // ⚠️ BẠN HÃY DÁN CONFIG CỦA BẠN VÀO KHU VỰC BÊN DƯỚI ⚠️
+    // -----------------------------------------------------------
+    const firebaseConfig = {
+  apiKey: "AIzaSyBk5BR4mtmv1Mcj4gYrbCKLwNiC5fhKlj4",
+  authDomain: "thu-nhap-6be80.firebaseapp.com",
+  databaseURL: "https://thu-nhap-6be80-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "thu-nhap-6be80",
+  storageBucket: "thu-nhap-6be80.firebasestorage.app",
+  messagingSenderId: "482191171526",
+  appId: "1:482191171526:web:358e486e9d28f194469cc7",
+  measurementId: "G-0B436SXQ0P"
+};
+
+    // --- KHỞI TẠO FIREBASE ---
+    let app, db;
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+    } catch(e) {
+        console.error("Chưa cấu hình Firebase đúng cách!");
+        alert("Vui lòng mở file code và dán Firebase Config vào dòng 340!");
+    }
+
+    // --- BIẾN TOÀN CỤC ---
+    window.dataStore = {}; 
+    window.configStore = { cap: 0, rate: 27000 };
+    window.undoStack = [];
+    window.currentDate = new Date(2025, 11, 1);
+    
+    // Dữ liệu mẫu T12
+    const SAMPLE_DATA = {
+        "2025-12-1": { in: 5, out: 10 }, "2025-12-2": { in: 0, out: 10 }, "2025-12-3": { in: 0, out: 10 },
+        "2025-12-4": { in: 0, out: 10 }, "2025-12-5": { in: 0, out: 10 }, "2025-12-6": { in: 0, out: 10 },
+        "2025-12-7": { in: 0, out: 10 }, "2025-12-8": { in: 150, out: 10 }, "2025-12-9": { in: 50, out: 10 },
+        "2025-12-10": { in: 0, out: 10 }, "2025-12-11": { in: 123, out: 13 }, "2025-12-12": { in: 0, out: 10 },
+        "2025-12-13": { in: 96.8, out: 10 }, "2025-12-14": { in: 0, out: 10 }, "2025-12-15": { in: 0, out: 10.6 },
+        "2025-12-16": { in: 0, out: 10 }, "2025-12-17": { in: 10, out: 10 }, "2025-12-18": { in: 86, out: 10 },
+        "2025-12-19": { in: 90.91, out: 10 }, "2025-12-20": { in: 0, out: 10 }, "2025-12-21": { in: 0, out: 10 },
+        "2025-12-22": { in: 0, out: 10 }, "2025-12-23": { in: 0, out: 17 }, "2025-12-24": { in: 42, out: 10 },
+        "2025-12-25": { in: 0, out: 10 }, "2025-12-26": { in: 0, out: 10 }, "2025-12-27": { in: 0, out: 10 },
+        "2025-12-28": { in: 0, out: 10 }, "2025-12-29": { in: 0, out: 10 }, "2025-12-30": { in: 0, out: 10 },
+        "2025-12-31": { in: 0, out: 10 }
+    };
+
+    // --- LẮNG NGHE DỮ LIỆU TỪ CLOUD ---
+    if(db) {
+        showStatus(true);
+        // Nghe thay đổi cấu hình
+        onValue(ref(db, 'config'), (snap) => {
+            const val = snap.val();
+            if(val) {
+                window.configStore = val;
+                document.getElementById('initialCapital').value = val.cap;
+                document.getElementById('exchangeRate').value = val.rate;
+                updateCalculations();
+            }
+        });
+
+        // Nghe thay đổi dữ liệu chính
+        onValue(ref(db, 'data'), (snap) => {
+            const val = snap.val();
+            if(val) {
+                window.dataStore = val;
+            } else {
+                // Nếu cloud trống trơn (lần đầu chạy), nạp mẫu
+                window.dataStore = {...SAMPLE_DATA};
+                syncToCloud();
+            }
+            updateCalculations();
+            renderCal();
+            showStatus(false);
+        });
+    }
+
+    // --- HÀM ĐỒNG BỘ ---
+    function syncToCloud() {
+        if(!db) return;
+        showStatus(true);
+        set(ref(db, 'data'), window.dataStore);
+    }
+
+    function syncConfig() {
+        if(!db) return;
+        set(ref(db, 'config'), window.configStore);
+    }
+
+    window.saveConfig = function() {
+        window.configStore.cap = parseFloat(document.getElementById('initialCapital').value) || 0;
+        window.configStore.rate = parseFloat(document.getElementById('exchangeRate').value) || 27000;
+        syncConfig();
+        updateCalculations();
+    }
+
+    // --- LOGIC GIAO DIỆN ---
+    function updateCalculations() {
+        let tIn = 0, tOut = 0;
+        for (let k in window.dataStore) {
+            tIn += parseFloat(window.dataStore[k].in) || 0;
+            tOut += parseFloat(window.dataStore[k].out) || 0;
+        }
+        
+        const profit = tIn - tOut;
+        const total = window.configStore.cap + profit;
+        const rate = window.configStore.rate;
+
+        // Hiển thị Tổng
+        document.getElementById('totalBalanceDisplay').innerText = total.toLocaleString('en-US', {maximumFractionDigits: 2});
+        document.getElementById('vndBalanceDisplay').innerText = (total * rate).toLocaleString('vi-VN', {maximumFractionDigits:0}) + ' ₫';
+        
+        // Hiển thị Lãi
+        const pBadge = document.getElementById('profitBadge');
+        pBadge.innerText = `Lãi: ${(profit>0?'+':'') + profit.toLocaleString()}`;
+        pBadge.className = profit < 0 ? 'badge-info bg-loss' : 'badge-info bg-profit';
+
+        // Hiển thị Lãi VND (NEW)
+        const pVndBadge = document.getElementById('vndProfitBadge');
+        pVndBadge.innerText = `≈ ${(profit * rate).toLocaleString('vi-VN', {maximumFractionDigits:0})} ₫`;
+        pVndBadge.className = profit < 0 ? 'badge-info bg-loss' : 'badge-info bg-vnd';
+    }
+
+    // --- UNDO ---
+    function pushUndo() {
+        window.undoStack.push(JSON.parse(JSON.stringify(window.dataStore)));
+        if(window.undoStack.length > 10) window.undoStack.shift();
+        renderUndoBtn();
+    }
+
+    window.execUndo = function() {
+        if(window.undoStack.length > 0) {
+            window.dataStore = window.undoStack.pop();
+            syncToCloud();
+            renderUndoBtn();
+        }
+    }
+
+    function renderUndoBtn() {
+        const btn = document.getElementById('btnUndo');
+        if(window.undoStack.length > 0) {
+            btn.classList.add('active');
+            btn.innerText = `↩ (${window.undoStack.length})`;
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = `↩ Hoàn tác`;
+        }
+    }
+
+    // --- ACTIONS ---
+    function getToday() { const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+
+    window.spend10 = function() {
+        pushUndo();
+        const k = getToday();
+        const cur = window.dataStore[k] || {in:0,out:0};
+        window.dataStore[k] = { in: cur.in, out: parseFloat(cur.out) + 10 };
+        syncToCloud();
+    }
+
+    window.saveQuick = function() {
+        const inc = parseFloat(document.getElementById('quickIn').value)||0;
+        const exp = parseFloat(document.getElementById('quickOut').value)||0;
+        if(inc==0 && exp==0) return;
+        
+        pushUndo();
+        const k = getToday();
+        const cur = window.dataStore[k] || {in:0,out:0};
+        window.dataStore[k] = { in: parseFloat(cur.in) + inc, out: parseFloat(cur.out) + exp };
+        
+        document.getElementById('quickIn').value = '';
+        document.getElementById('quickOut').value = '';
+        syncToCloud();
+    }
+
+    window.restoreData = function() {
+        if(confirm("Dữ liệu trên Cloud sẽ bị ghi đè bằng dữ liệu gốc T12?")) {
+            pushUndo();
+            window.dataStore = {...window.dataStore, ...SAMPLE_DATA};
+            syncToCloud();
+        }
+    }
+
+    // --- CALENDAR RENDER ---
+    window.toggleCal = function() {
+        const el = document.getElementById('calendarSection');
+        el.style.display = (el.style.display==='block')?'none':'block';
+    }
+
+    window.changeMonth = function(s) { window.currentDate.setMonth(window.currentDate.getMonth()+s); window.renderCal(); }
+
+    window.renderCal = function() {
+        const y = window.currentDate.getFullYear();
+        const m = window.currentDate.getMonth();
+        document.getElementById('monthDisplay').innerText = `${m+1}/${y}`;
+        
+        const cal = document.getElementById('calendar');
+        cal.innerHTML = '';
+        ['CN','T2','T3','T4','T5','T6','T7'].forEach(d => cal.innerHTML+=`<div class="day-header">${d}</div>`);
+        
+        const firstDay = new Date(y, m, 1).getDay();
+        const days = new Date(y, m+1, 0).getDate();
+
+        for(let i=0; i<firstDay; i++) cal.innerHTML += `<div></div>`;
+
+        for(let i=1; i<=days; i++) {
+            const k = `${y}-${m+1}-${i}`;
+            const d = window.dataStore[k] || {in:0,out:0};
+            const isToday = (new Date().toDateString() === new Date(y,m,i).toDateString()) ? 'today' : '';
+            
+            let htmlVal = '';
+            if(d.in > 0) htmlVal += `<span class="val-txt c-green">+${parseFloat(d.in)}</span>`;
+            if(d.out > 0) htmlVal += `<span class="val-txt c-red">-${parseFloat(d.out)}</span>`;
+
+            cal.innerHTML += `
+            <div class="day-card ${isToday}" onclick="openMod('${k}')">
+                <div class="day-num">${i}</div>
+                <div>${htmlVal}</div>
+            </div>`;
+        }
+    }
+
+    // --- MODAL ---
+    let selKey = null;
+    window.openMod = function(k) {
+        selKey = k;
+        const val = window.dataStore[k] || {in:0,out:0};
+        document.getElementById('modalIn').value = val.in||'';
+        document.getElementById('modalOut').value = val.out||'';
+        document.getElementById('inputModal').style.display = 'flex';
+    }
+    window.closeModal = function() { document.getElementById('inputModal').style.display = 'none'; }
+    window.saveModal = function() {
+        pushUndo();
+        const inc = parseFloat(document.getElementById('modalIn').value)||0;
+        const exp = parseFloat(document.getElementById('modalOut').value)||0;
+        if(inc==0 && exp==0) delete window.dataStore[selKey];
+        else window.dataStore[selKey] = {in:inc, out:exp};
+        syncToCloud(); closeModal();
+    }
+
+    function showStatus(show) {
+        document.getElementById('statusIndicator').style.opacity = show ? 1 : 0;
+    }
+
+    // Init Render
+    window.renderCal();
+</script>
+</body>
+</html>        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; }
+        .balance-label { font-size: 11px; text-transform: uppercase; color: var(--text-sub); font-weight: 700; }
+        .balance-total { font-size: 34px; font-weight: 700; color: #2d3436; line-height: 1; margin: 5px 0; }
+        .balance-vnd { font-size: 15px; font-weight: 600; color: #0984e3; }
+        
+        .badges-row { display: flex; gap: 10px; margin-top: 8px; }
+        .badge-info {
+            padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
+        }
+        .bg-profit { background: rgba(0, 184, 148, 0.15); color: var(--green); }
+        .bg-loss { background: rgba(214, 48, 49, 0.15); color: var(--red); }
+        .bg-vnd { background: rgba(9, 132, 227, 0.1); color: #0984e3; }
+
+        /* INPUTS */
+        .modern-input {
+            width: 100%; padding: 10px; border: 1px solid #dfe6e9; border-radius: 8px;
+            font-size: 14px; outline: none; background: white; font-weight: 600; box-sizing: border-box;
+        }
+        .modern-input:focus { border-color: #0984e3; }
+
+        /* BUTTONS */
+        .quick-bar { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+        .btn {
+            border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;
+            font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 1; transition: 0.2s;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-blue { background: #0984e3; color: white; }
+        .btn-flash { background: #fdcb6e; color: #d35400; }
+        .btn-undo { background: #b2bec3; color: white; opacity: 0.5; pointer-events: none; }
+        .btn-undo.active { opacity: 1; pointer-events: auto; background: #636e72; }
+
+        /* CALENDAR */
+        .toggle-bar {
+            text-align: center; background: rgba(255,255,255,0.5); padding: 10px; 
+            border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 15px;
+        }
+        #calendarSection { display: none; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .cal-nav { background: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-weight: bold; }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .day-header { text-align: center; font-size: 10px; font-weight: 700; color: #b2bec3; margin-bottom: 5px; }
+
+        .day-card {
+            background: white; border-radius: 8px; min-height: 55px; padding: 4px; 
+            border: 1px solid #f1f2f6; cursor: pointer; position: relative;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .day-card:hover { border-color: #0984e3; transform: translateY(-2px); z-index: 2; }
+        .day-card.today { background: #e3f2fd; border-color: #0984e3; }
+        
+        .val-txt { font-size: 9px; font-weight: 700; text-align: right; display: block; line-height: 1.1; }
+        .c-green { color: var(--green); }
+        .c-red { color: var(--red); }
+        
+        /* Loading Status */
+        #statusIndicator {
+            position: fixed; bottom: 10px; right: 10px; font-size: 10px; 
+            background: #2d3436; color: white; padding: 5px 10px; border-radius: 20px; opacity: 0; transition: opacity 0.5s;
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center;
+        }
+        .modal-content { background: white; width: 280px; padding: 25px; border-radius: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <div class="glass-card">
+        <div class="dashboard-header">
+            <div style="flex: 1.5;">
+                <div class="balance-label">Tổng Tài Sản (Vốn + Lãi)</div>
+                <div class="balance-total" id="totalBalanceDisplay">...</div>
+                <div class="balance-vnd" id="vndBalanceDisplay">...</div>
+                
+                <div class="badges-row">
+                    <div id="profitBadge" class="badge-info bg-profit">Lãi: 0</div>
+                    <div id="vndProfitBadge" class="badge-info bg-vnd">≈ 0 ₫</div>
+                </div>
+            </div>
+            
+            <div style="flex: 1; min-width: 120px;">
+                <input type="number" id="initialCapital" class="modern-input" placeholder="Vốn ($)..." onchange="saveConfig()" style="margin-bottom:5px;">
+                <input type="number" id="exchangeRate" class="modern-input" value="27000" onchange="saveConfig()">
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div style="display:flex; gap:5px;">
             <input type="number" id="quickIn" class="modern-input" placeholder="+Thu" style="border-color: #55efc4;">
             <input type="number" id="quickOut" class="modern-input" placeholder="-Chi" style="border-color: #fab1a0;">
         </div>
