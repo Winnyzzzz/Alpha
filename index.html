@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản Lý Tài Chính Online</title>
+    <title>Quản Lý Tài Chính Ultimate</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
@@ -13,14 +12,16 @@
             --glass: rgba(255, 255, 255, 0.95);
             --green: #00b894;
             --red: #d63031;
+            --blue: #0984e3;
+            --purple: #6c5ce7;
             --dark: #2d3436;
             --text-sub: #636e72;
-            --shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.15);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
         }
 
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
             margin: 0; padding: 15px;
             min-height: 100vh;
             color: var(--dark);
@@ -31,58 +32,73 @@
 
         .glass-card {
             background: var(--glass);
-            border-radius: 16px;
+            border-radius: 20px;
             box-shadow: var(--shadow);
-            padding: 20px; margin-bottom: 15px;
+            padding: 20px; margin-bottom: 20px;
+            backdrop-filter: blur(5px);
         }
 
-        /* HEADER */
-        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; }
-        .balance-label { font-size: 11px; text-transform: uppercase; color: var(--text-sub); font-weight: 700; }
-        .balance-total { font-size: 34px; font-weight: 700; color: #2d3436; line-height: 1; margin: 5px 0; }
-        .balance-vnd { font-size: 15px; font-weight: 600; color: #0984e3; }
+        /* HEADER & BALANCE */
+        .dashboard-header { margin-bottom: 20px; border-bottom: 1px solid #dfe6e9; padding-bottom: 15px; }
         
-        .badges-row { display: flex; gap: 10px; margin-top: 8px; }
-        .badge-info {
-            padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
+        .balance-group { margin-bottom: 15px; }
+        .balance-label { font-size: 11px; text-transform: uppercase; color: var(--text-sub); font-weight: 700; letter-spacing: 0.5px; }
+        
+        .balance-total { font-size: 28px; font-weight: 700; color: var(--dark); margin: 0; line-height: 1.2; }
+        /* Đã xóa class balance-sub ở đây */
+        
+        .alpha-box {
+            background: rgba(108, 92, 231, 0.1); padding: 10px 15px; border-radius: 12px;
+            margin-top: 10px; border: 1px solid rgba(108, 92, 231, 0.2);
         }
-        .bg-profit { background: rgba(0, 184, 148, 0.15); color: var(--green); }
-        .bg-loss { background: rgba(214, 48, 49, 0.15); color: var(--red); }
-        .bg-vnd { background: rgba(9, 132, 227, 0.1); color: #0984e3; }
+        .alpha-total { font-size: 20px; font-weight: 700; color: var(--purple); }
 
-        /* INPUTS */
+        .profit-badge {
+            display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
+            background: rgba(0, 184, 148, 0.15); color: var(--green); margin-top: 5px;
+        }
+        .profit-badge.neg { background: rgba(214, 48, 49, 0.15); color: var(--red); }
+
+        /* INPUTS GRID */
+        .assets-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        }
+        .input-group { position: relative; }
+        .input-label { font-size: 10px; font-weight: 700; color: var(--text-sub); margin-bottom: 3px; display: block; }
+        
         .modern-input {
-            width: 100%; padding: 10px; border: 1px solid #dfe6e9; border-radius: 8px;
-            font-size: 14px; outline: none; background: white; font-weight: 600; box-sizing: border-box;
+            width: 100%; padding: 8px 10px; border: 1px solid #dfe6e9; border-radius: 8px;
+            font-size: 13px; font-weight: 600; outline: none; background: #fdfdfd; box-sizing: border-box;
+            transition: 0.3s;
         }
-        .modern-input:focus { border-color: #0984e3; }
+        .modern-input:focus { border-color: var(--blue); background: white; }
+        .inp-vnd { border-left: 3px solid var(--green); }
+        .inp-usd { border-left: 3px solid #fdcb6e; }
+        .inp-alpha { border-left: 3px solid var(--purple); }
 
-        /* BUTTONS */
-        .quick-bar { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+        /* ACTIONS */
+        .quick-actions { display: flex; gap: 8px; margin-top: 15px; align-items: center; }
         .btn {
-            border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;
-            font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 1; transition: 0.2s; white-space: nowrap;
+            border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;
+            font-size: 12px; display: flex; align-items: center; justify-content: center; transition: 0.2s;
         }
         .btn:active { transform: scale(0.96); }
-        .btn-blue { background: #0984e3; color: white; }
-        .btn-flash { background: #fdcb6e; color: #d35400; }
-        .btn-undo { background: #b2bec3; color: white; opacity: 0.5; pointer-events: none; }
+        .btn-blue { background: var(--blue); color: white; flex: 1; }
+        .btn-flash { background: #fdcb6e; color: #d35400; width: 70px; }
+        .btn-undo { background: #b2bec3; color: white; width: 70px; opacity: 0.5; pointer-events: none; }
         .btn-undo.active { opacity: 1; pointer-events: auto; background: #636e72; }
-
-        /* 2. STYLE CHO NÚT EXCEL MỚI */
-        .btn-excel { background: #27ae60; color: white; }
-        .btn-excel:hover { background: #219150; }
+        .btn-excel { background: #27ae60; color: white; width: 100%; margin-top: 10px; padding: 12px; }
 
         /* CALENDAR */
         .toggle-bar {
-            text-align: center; background: rgba(255,255,255,0.5); padding: 10px; 
-            border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 15px;
+            text-align: center; background: rgba(255,255,255,0.4); padding: 8px; color: var(--dark);
+            border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 12px; margin-bottom: 15px;
         }
         #calendarSection { display: none; }
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .cal-nav { background: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-weight: bold; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .cal-nav { background: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
         .day-header { text-align: center; font-size: 10px; font-weight: 700; color: #b2bec3; margin-bottom: 5px; }
 
         .day-card {
@@ -90,23 +106,22 @@
             border: 1px solid #f1f2f6; cursor: pointer; position: relative;
             display: flex; flex-direction: column; justify-content: space-between;
         }
-        .day-card:hover { border-color: #0984e3; transform: translateY(-2px); z-index: 2; }
-        .day-card.today { background: #e3f2fd; border-color: #0984e3; }
+        .day-card:hover { border-color: var(--blue); transform: translateY(-2px); z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .day-card.today { background: #e3f2fd; border-color: var(--blue); }
         
         .val-txt { font-size: 9px; font-weight: 700; text-align: right; display: block; line-height: 1.1; }
         .c-green { color: var(--green); }
         .c-red { color: var(--red); }
-        
+
         #statusIndicator {
             position: fixed; bottom: 10px; right: 10px; font-size: 10px; 
-            background: #2d3436; color: white; padding: 5px 10px; border-radius: 20px; opacity: 0; transition: opacity 0.5s;
+            background: var(--dark); color: white; padding: 5px 10px; border-radius: 20px; opacity: 0; transition: opacity 0.5s;
         }
-
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.6); z-index: 999; justify-content: center; align-items: center; backdrop-filter: blur(2px);
         }
-        .modal-content { background: white; width: 280px; padding: 25px; border-radius: 15px; }
+        .modal-content { background: white; width: 280px; padding: 20px; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -115,53 +130,76 @@
 
     <div class="glass-card">
         <div class="dashboard-header">
-            <div style="flex: 1.5;">
-                <div class="balance-label">Tổng Tài Sản (Vốn + Lãi)</div>
-                <div class="balance-total" id="totalBalanceDisplay">...</div>
-                <div class="balance-vnd" id="vndBalanceDisplay">...</div>
-                
-                <div class="badges-row">
-                    <div id="profitBadge" class="badge-info bg-profit">Lãi: 0</div>
-                    <div id="vndProfitBadge" class="badge-info bg-vnd">≈ 0 ₫</div>
+            <div class="balance-group">
+                <div class="balance-label">TỔNG SỐ DƯ (BANK + Mi11 + K60 + N7)</div>
+                <div class="balance-total" id="totalBalanceVND">0 ₫</div>
                 </div>
+
+            <div class="alpha-box">
+                <div class="balance-label" style="color: var(--purple)">TỔNG TỪ ALPHA (VỐN + LÃI)</div>
+                <div class="alpha-total" id="alphaTotalVND">0 ₫</div>
+                <div id="profitBadge" class="profit-badge">Lãi ròng: 0</div>
             </div>
-            
-            <div style="flex: 1; min-width: 120px;">
-                <input type="number" id="initialCapital" class="modern-input" placeholder="Vốn ($)..." onchange="saveConfig()" style="margin-bottom:5px;">
+        </div>
+
+        <div class="assets-grid">
+            <div class="input-group">
+                <label class="input-label">🏦 Số dư Bank (VND)</label>
+                <input type="number" id="bankBalance" class="modern-input inp-vnd" placeholder="VND..." onchange="saveConfig()">
+            </div>
+            <div class="input-group">
+                <label class="input-label">💱 Tỷ giá (VND)</label>
                 <input type="number" id="exchangeRate" class="modern-input" value="27000" onchange="saveConfig()">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">📱 USD Mi 11</label>
+                <input type="number" id="usdMi11" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+            </div>
+            <div class="input-group">
+                <label class="input-label">💻 USD K60</label>
+                <input type="number" id="usdK60" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+            </div>
+            <div class="input-group" style="grid-column: span 2;">
+                <label class="input-label">📱 USD N7</label>
+                <input type="number" id="usdN7" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+            </div>
+
+            <div class="input-group" style="grid-column: span 2;">
+                <label class="input-label" style="color: var(--purple)">⚛️ Vốn Alpha ($)</label>
+                <input type="number" id="usdAlpha" class="modern-input inp-alpha" value="10206" onchange="saveConfig()">
             </div>
         </div>
     </div>
 
     <div class="glass-card">
-        <div style="display:flex; gap:5px;">
-            <input type="number" id="quickIn" class="modern-input" placeholder="" style="border-color: #55efc4;">
-            <input type="number" id="quickOut" class="modern-input" placeholder="" style="border-color: #fab1a0;">
+        <div class="input-label" style="margin-bottom:8px;">GIAO DỊCH HÔM NAY (ALPHA $)</div>
+        <div style="display:flex; gap:10px;">
+            <input type="number" id="quickIn" class="modern-input" placeholder="+ Thu ($)" style="border-color: #55efc4;">
+            <input type="number" id="quickOut" class="modern-input" placeholder="- Chi ($)" style="border-color: #fab1a0;">
         </div>
         
-        <div class="quick-bar">
-            <button class="btn btn-blue" onclick="saveQuick()">Lưu</button>
-            <button class="btn btn-flash" onclick="spend10()">Chi 10$</button>
-            <button id="btnUndo" class="btn btn-undo" onclick="execUndo()">↩ Hoàn tác</button>
+        <div class="quick-actions">
+            <button class="btn btn-blue" onclick="saveQuick()">Lưu Giao Dịch</button>
+            <button class="btn btn-flash" onclick="spend10()">⚡ 10$</button>
+            <button id="btnUndo" class="btn btn-undo" onclick="execUndo()">↩ Undo</button>
         </div>
         
-        <div class="quick-bar">
-            <button class="btn btn-excel" onclick="exportToExcel()">📊 Tải file Excel</button>
-        </div>
+        <button class="btn btn-excel" onclick="exportToExcel()">📊 Xuất File Excel</button>
     </div>
 
     <div class="toggle-bar" onclick="toggleCal()">📅 Chạm để mở Lịch Sử</div>
 
     <div id="calendarSection">
-        <div class="glass-card" style="padding: 10px;">
+        <div class="glass-card">
             <div class="calendar-header">
                 <button class="cal-nav" onclick="changeMonth(-1)">❮</button>
                 <span style="font-weight:700; font-size:14px;" id="monthDisplay">12/2025</span>
                 <button class="cal-nav" onclick="changeMonth(1)">❯</button>
             </div>
             
-            <div style="text-align:right; margin-bottom:5px;">
-                <small onclick="restoreData()" style="color:#0984e3; cursor:pointer; font-size:10px;">🔄 Khôi phục dữ liệu gốc</small>
+            <div style="text-align:right; margin-bottom:10px;">
+                <small onclick="restoreData()" style="color:#0984e3; cursor:pointer; font-size:11px; text-decoration: underline;">🔄 Khôi phục dữ liệu gốc</small>
             </div>
 
             <div class="calendar-grid" id="calendar"></div>
@@ -178,15 +216,16 @@
         <input type="number" id="modalIn" class="modern-input" placeholder="Thu ($)" style="margin-bottom:10px;">
         <input type="number" id="modalOut" class="modern-input" placeholder="Chi ($)" style="margin-bottom:15px;">
         <button class="btn btn-blue" onclick="saveModal()">Cập nhật</button>
-        <button class="btn" style="width:100%; margin-top:5px; background:#dfe6e9;" onclick="closeModal()">Đóng</button>
+        <button class="btn" style="width:100%; margin-top:10px; background:#dfe6e9;" onclick="closeModal()">Đóng</button>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // CONFIG CỦA BẠN ĐÃ ĐƯỢC GIỮ NGUYÊN
+    // --- FIREBASE CONFIG ---
+    // ⚠️ HÃY DÁN CONFIG FIREBASE CỦA BẠN VÀO ĐÂY NẾU CHƯA CÓ ⚠️
     const firebaseConfig = {
       apiKey: "AIzaSyBk5BR4mtmv1Mcj4gYrbCKLwNiC5fhKlj4",
       authDomain: "thu-nhap-6be80.firebaseapp.com",
@@ -199,20 +238,17 @@
     };
 
     let app, db;
-    try {
-        app = initializeApp(firebaseConfig);
-        db = getDatabase(app);
-    } catch(e) {
-        console.error("Lỗi khởi tạo Firebase");
-    }
+    try { app = initializeApp(firebaseConfig); db = getDatabase(app); } 
+    catch(e) { console.error("Chưa config Firebase"); }
 
-    // --- BIẾN TOÀN CỤC ---
+    // STATE
     window.dataStore = {}; 
-    window.configStore = { cap: 0, rate: 27000 };
+    // Config: bank, các nguồn USD, alpha, rate
+    window.configStore = { bank: 0, mi11: 0, k60: 0, n7: 0, alpha: 10206, rate: 27000 };
     window.undoStack = [];
     window.currentDate = new Date(2025, 11, 1);
     
-    // Dữ liệu mẫu T12
+    // DATA MẪU T12
     const SAMPLE_DATA = {
         "2025-12-1": { in: 5, out: 10 }, "2025-12-2": { in: 0, out: 10 }, "2025-12-3": { in: 0, out: 10 },
         "2025-12-4": { in: 0, out: 10 }, "2025-12-5": { in: 0, out: 10 }, "2025-12-6": { in: 0, out: 10 },
@@ -227,18 +263,24 @@
         "2025-12-31": { in: 0, out: 10 }
     };
 
-    // --- LẮNG NGHE DỮ LIỆU ---
+    // --- FIREBASE SYNC ---
     if(db) {
         showStatus(true);
+        // Load Config
         onValue(ref(db, 'config'), (snap) => {
             const val = snap.val();
             if(val) {
                 window.configStore = val;
-                document.getElementById('initialCapital').value = val.cap;
-                document.getElementById('exchangeRate').value = val.rate;
+                document.getElementById('bankBalance').value = val.bank || '';
+                document.getElementById('usdMi11').value = val.mi11 || '';
+                document.getElementById('usdK60').value = val.k60 || '';
+                document.getElementById('usdN7').value = val.n7 || '';
+                document.getElementById('usdAlpha').value = val.alpha || 10206;
+                document.getElementById('exchangeRate').value = val.rate || 27000;
                 updateCalculations();
             }
         });
+        // Load Data
         onValue(ref(db, 'data'), (snap) => {
             const val = snap.val();
             if(val) window.dataStore = val;
@@ -251,31 +293,45 @@
     function syncConfig() { if(!db) return; set(ref(db, 'config'), window.configStore); }
 
     window.saveConfig = function() {
-        window.configStore.cap = parseFloat(document.getElementById('initialCapital').value) || 0;
-        window.configStore.rate = parseFloat(document.getElementById('exchangeRate').value) || 27000;
+        window.configStore = {
+            bank: parseFloat(document.getElementById('bankBalance').value) || 0,
+            mi11: parseFloat(document.getElementById('usdMi11').value) || 0,
+            k60: parseFloat(document.getElementById('usdK60').value) || 0,
+            n7: parseFloat(document.getElementById('usdN7').value) || 0,
+            alpha: parseFloat(document.getElementById('usdAlpha').value) || 10206,
+            rate: parseFloat(document.getElementById('exchangeRate').value) || 27000
+        };
         syncConfig(); updateCalculations();
     }
 
+    // --- LOGIC TÍNH TOÁN (ĐÃ CẬP NHẬT) ---
     function updateCalculations() {
+        // 1. Tính Lãi Ròng từ Lịch (USD)
         let tIn = 0, tOut = 0;
         for (let k in window.dataStore) {
             tIn += parseFloat(window.dataStore[k].in) || 0;
             tOut += parseFloat(window.dataStore[k].out) || 0;
         }
-        const profit = tIn - tOut;
-        const total = window.configStore.cap + profit;
-        const rate = window.configStore.rate;
+        const profitUSD = tIn - tOut;
+        
+        const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
 
-        document.getElementById('totalBalanceDisplay').innerText = total.toLocaleString('en-US', {maximumFractionDigits: 2});
-        document.getElementById('vndBalanceDisplay').innerText = (total * rate).toLocaleString('vi-VN', {maximumFractionDigits:0}) + ' ₫';
+        // 2. Tính TỔNG SỐ DƯ HIỆN TẠI (Bank + Mi11 + K60 + N7) * Rate
+        const sumUsdAssets = mi11 + k60 + n7;
+        const totalBalanceVND = bank + (sumUsdAssets * rate);
+
+        // 3. Tính TỔNG ALPHA (Vốn Alpha + Lãi) * Rate
+        const alphaTotalVND = (alpha + profitUSD) * rate;
+
+        // HIỂN THỊ
+        document.getElementById('totalBalanceVND').innerText = totalBalanceVND.toLocaleString('vi-VN') + ' ₫';
+        // Đã xóa dòng hiển thị phụ ở đây
+        
+        document.getElementById('alphaTotalVND').innerText = alphaTotalVND.toLocaleString('vi-VN') + ' ₫';
         
         const pBadge = document.getElementById('profitBadge');
-        pBadge.innerText = `Lãi: ${(profit>0?'+':'') + profit.toLocaleString()}`;
-        pBadge.className = profit < 0 ? 'badge-info bg-loss' : 'badge-info bg-profit';
-
-        const pVndBadge = document.getElementById('vndProfitBadge');
-        pVndBadge.innerText = `≈ ${(profit * rate).toLocaleString('vi-VN', {maximumFractionDigits:0})} ₫`;
-        pVndBadge.className = profit < 0 ? 'badge-info bg-loss' : 'badge-info bg-vnd';
+        pBadge.innerText = `Lãi ròng: ${(profitUSD>0?'+':'') + profitUSD.toLocaleString('en-US')} $`;
+        pBadge.className = profitUSD < 0 ? 'profit-badge neg' : 'profit-badge';
     }
 
     // --- UNDO ---
@@ -284,154 +340,82 @@
         if(window.undoStack.length > 10) window.undoStack.shift();
         renderUndoBtn();
     }
-
     window.execUndo = function() {
         if(window.undoStack.length > 0) {
-            window.dataStore = window.undoStack.pop();
-            syncToCloud(); renderUndoBtn();
+            window.dataStore = window.undoStack.pop(); syncToCloud(); renderUndoBtn();
         }
     }
-
     function renderUndoBtn() {
         const btn = document.getElementById('btnUndo');
-        if(window.undoStack.length > 0) {
-            btn.classList.add('active');
-            btn.innerText = `↩ (${window.undoStack.length})`;
-        } else {
-            btn.classList.remove('active');
-            btn.innerText = `↩ Hoàn tác`;
-        }
+        if(window.undoStack.length>0) { btn.classList.add('active'); btn.innerText=`↩ (${window.undoStack.length})`; }
+        else { btn.classList.remove('active'); btn.innerText=`↩ Undo`; }
     }
 
     // --- ACTIONS ---
     function getToday() { const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
 
     window.spend10 = function() {
-        pushUndo();
-        const k = getToday();
+        pushUndo(); const k=getToday();
         const cur = window.dataStore[k] || {in:0,out:0};
-        window.dataStore[k] = { in: cur.in, out: parseFloat(cur.out) + 10 };
+        window.dataStore[k] = { in: cur.in, out: parseFloat(cur.out)+10 };
         syncToCloud();
     }
-
     window.saveQuick = function() {
-        const inc = parseFloat(document.getElementById('quickIn').value)||0;
-        const exp = parseFloat(document.getElementById('quickOut').value)||0;
+        const inc=parseFloat(document.getElementById('quickIn').value)||0;
+        const exp=parseFloat(document.getElementById('quickOut').value)||0;
         if(inc==0 && exp==0) return;
-        pushUndo();
-        const k = getToday();
+        pushUndo(); const k=getToday();
         const cur = window.dataStore[k] || {in:0,out:0};
-        window.dataStore[k] = { in: parseFloat(cur.in) + inc, out: parseFloat(cur.out) + exp };
-        document.getElementById('quickIn').value = '';
-        document.getElementById('quickOut').value = '';
+        window.dataStore[k] = { in: parseFloat(cur.in)+inc, out: parseFloat(cur.out)+exp };
+        document.getElementById('quickIn').value=''; document.getElementById('quickOut').value='';
         syncToCloud();
     }
 
-    // --- 4. HÀM XUẤT EXCEL (NEW) ---
+    // --- EXCEL EXPORT (CẬP NHẬT) ---
     window.exportToExcel = function() {
-        if (!window.dataStore || Object.keys(window.dataStore).length === 0) {
-            alert("Chưa có dữ liệu để xuất!");
-            return;
-        }
+        if(!window.dataStore || Object.keys(window.dataStore).length===0) { alert("Chưa có dữ liệu!"); return; }
+        const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
+        
+        // Tính lại tổng để ghi vào Excel
+        let tIn = 0, tOut = 0;
+        for (let k in window.dataStore) { tIn += parseFloat(window.dataStore[k].in)||0; tOut += parseFloat(window.dataStore[k].out)||0; }
+        const profit = tIn - tOut;
+        const alphaTotalVND = (alpha + profit) * rate;
+        const mainTotalVND = bank + (mi11 + k60 + n7) * rate;
 
-        const rate = window.configStore.rate;
-        // Chuẩn bị tiêu đề
         const data = [
-            ["BÁO CÁO TÀI CHÍNH"],
+            ["BÁO CÁO TÀI CHÍNH CHI TIẾT"],
             ["Ngày xuất:", new Date().toLocaleDateString('vi-VN')],
-            ["Tỷ giá:", rate],
-            [], // Dòng trống
+            [],
+            ["1. TỔNG SỐ DƯ HIỆN TẠI (Bank + 3 USD)", mainTotalVND],
+            ["   - Số dư Bank (VND):", bank],
+            ["   - USD Mi 11:", mi11],
+            ["   - USD K60:", k60],
+            ["   - USD N7:", n7],
+            [],
+            ["2. HIỆU QUẢ ALPHA"],
+            ["   - Vốn Alpha:", alpha],
+            ["   - Lãi Ròng ($):", profit],
+            ["   - Tổng Alpha Quy Đổi (VND):", alphaTotalVND],
+            [],
+            ["3. TỶ GIÁ ÁP DỤNG", rate],
+            [],
+            ["4. CHI TIẾT GIAO DỊCH"],
             ["Ngày", "Thu ($)", "Chi ($)", "Lợi nhuận ($)", "Quy đổi (VND)"]
         ];
 
-        // Sắp xếp ngày tháng
-        const keys = Object.keys(window.dataStore).sort((a,b) => new Date(a) - new Date(b));
-
+        const keys = Object.keys(window.dataStore).sort((a,b)=>new Date(a)-new Date(b));
         keys.forEach(key => {
            const item = window.dataStore[key];
-           const profit = (parseFloat(item.in)||0) - (parseFloat(item.out)||0);
-           const vnd = profit * rate;
-           data.push([key, item.in, item.out, profit, vnd]);
+           const prof = (parseFloat(item.in)||0)-(parseFloat(item.out)||0);
+           data.push([key, item.in, item.out, prof, prof*rate]);
         });
 
-        // Tạo sheet và tải về
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "ChiTieu");
-        XLSX.writeFile(wb, "BaoCaoTaiChinh.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Baocao");
+        XLSX.writeFile(wb, "TaiChinh_Ultimate.xlsx");
     }
 
-    // --- CALENDAR RENDER ---
-    window.toggleCal = function() {
-        const el = document.getElementById('calendarSection');
-        el.style.display = (el.style.display==='block')?'none':'block';
-    }
-
-    window.changeMonth = function(s) { window.currentDate.setMonth(window.currentDate.getMonth()+s); window.renderCal(); }
-
-    window.renderCal = function() {
-        const y = window.currentDate.getFullYear();
-        const m = window.currentDate.getMonth();
-        document.getElementById('monthDisplay').innerText = `${m+1}/${y}`;
-        
-        const cal = document.getElementById('calendar');
-        cal.innerHTML = '';
-        ['CN','T2','T3','T4','T5','T6','T7'].forEach(d => cal.innerHTML+=`<div class="day-header">${d}</div>`);
-        
-        const firstDay = new Date(y, m, 1).getDay();
-        const days = new Date(y, m+1, 0).getDate();
-
-        for(let i=0; i<firstDay; i++) cal.innerHTML += `<div></div>`;
-
-        for(let i=1; i<=days; i++) {
-            const k = `${y}-${m+1}-${i}`;
-            const d = window.dataStore[k] || {in:0,out:0};
-            const isToday = (new Date().toDateString() === new Date(y,m,i).toDateString()) ? 'today' : '';
-            
-            let htmlVal = '';
-            if(d.in > 0) htmlVal += `<span class="val-txt c-green">+${parseFloat(d.in)}</span>`;
-            if(d.out > 0) htmlVal += `<span class="val-txt c-red">-${parseFloat(d.out)}</span>`;
-
-            cal.innerHTML += `
-            <div class="day-card ${isToday}" onclick="openMod('${k}')">
-                <div class="day-num">${i}</div>
-                <div>${htmlVal}</div>
-            </div>`;
-        }
-    }
-
-    // --- MODAL ---
-    let selKey = null;
-    window.openMod = function(k) {
-        selKey = k;
-        const val = window.dataStore[k] || {in:0,out:0};
-        document.getElementById('modalIn').value = val.in||'';
-        document.getElementById('modalOut').value = val.out||'';
-        document.getElementById('inputModal').style.display = 'flex';
-    }
-    window.closeModal = function() { document.getElementById('inputModal').style.display = 'none'; }
-    window.saveModal = function() {
-        pushUndo();
-        const inc = parseFloat(document.getElementById('modalIn').value)||0;
-        const exp = parseFloat(document.getElementById('modalOut').value)||0;
-        if(inc==0 && exp==0) delete window.dataStore[selKey];
-        else window.dataStore[selKey] = {in:inc, out:exp};
-        syncToCloud(); closeModal();
-    }
-
-    window.restoreData = function() {
-        if(confirm("Dữ liệu trên Cloud sẽ bị ghi đè bằng dữ liệu gốc T12?")) {
-            pushUndo();
-            window.dataStore = {...window.dataStore, ...SAMPLE_DATA};
-            syncToCloud();
-        }
-    }
-
-    function showStatus(show) {
-        document.getElementById('statusIndicator').style.opacity = show ? 1 : 0;
-    }
-
-    window.renderCal();
-</script>
-</body>
-</html>
+    // --- UI HELPERS ---
+    window.toggleCal = function() { const el=document.getElementById
