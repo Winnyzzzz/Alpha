@@ -77,6 +77,24 @@
         return tIn - tOut;
     }
 
+
+    // === FEATURE: BANK +/- (UNDO-AWARE, SAFE) ===
+    window.changeBank = function(dir) {
+        const val = prompt(dir > 0 ? "Nhập số VND muốn CỘNG:" : "Nhập số VND muốn TRỪ:");
+        if (val === null) return;
+
+        const amt = parseFloat(val);
+        if (isNaN(amt)) return alert("Số không hợp lệ");
+
+        pushUndo();
+
+        const inp = document.getElementById('bankBalance');
+        const cur = parseFloat(inp.value) || 0;
+        inp.value = dir > 0 ? cur + amt : cur - amt;
+
+        saveConfig();
+    }
+
 </script>
 
     <style>
@@ -216,7 +234,13 @@
         <div class="assets-grid">
             <div class="input-group">
                 <label class="input-label">🏦 Số dư Bank (VND)</label>
-                <input type="number" id="bankBalance" class="modern-input inp-vnd" placeholder="VND..." onchange="saveConfig()">
+                
+    <div style="display:flex; gap:6px;">
+        <button class="btn btn-flash" onclick="changeBank(-1)">-</button>
+        <input type="number" id="bankBalance" class="modern-input inp-vnd" placeholder="VND..." onchange="saveConfig()">
+        <button class="btn btn-flash" onclick="changeBank(1)">+</button>
+    </div>
+    
             </div>
             <div class="input-group">
                 <label class="input-label">💱 Tỷ giá (VND)</label>
@@ -675,6 +699,24 @@
             }
         }
         return tIn - tOut;
+    }
+
+
+    // === FEATURE: BANK +/- (UNDO-AWARE, SAFE) ===
+    window.changeBank = function(dir) {
+        const val = prompt(dir > 0 ? "Nhập số VND muốn CỘNG:" : "Nhập số VND muốn TRỪ:");
+        if (val === null) return;
+
+        const amt = parseFloat(val);
+        if (isNaN(amt)) return alert("Số không hợp lệ");
+
+        pushUndo();
+
+        const inp = document.getElementById('bankBalance');
+        const cur = parseFloat(inp.value) || 0;
+        inp.value = dir > 0 ? cur + amt : cur - amt;
+
+        saveConfig();
     }
 
 </script>
