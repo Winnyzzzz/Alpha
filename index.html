@@ -5,7 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản Lý Tài Chính Ultimate</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
+    // === FEATURE 1: MONTHLY STATS (SAFE, READ-ONLY) ===
+    function updateMonthlyStats() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+
+        let sumIn = 0, sumOut = 0;
+
+        for (let k in window.dataStore) {
+            const [yy, mm] = k.split('-').map(Number);
+            if (yy === y && mm === m) {
+                sumIn += parseFloat(window.dataStore[k].in) || 0;
+                sumOut += parseFloat(window.dataStore[k].out) || 0;
+            }
+        }
+
+        const profit = sumIn - sumOut;
+
+        document.getElementById('monthIn').innerText = sumIn.toLocaleString('en-US') + ' $';
+        document.getElementById('monthOut').innerText = sumOut.toLocaleString('en-US') + ' $';
+        document.getElementById('monthProfit').innerText =
+            (profit >= 0 ? '+' : '') + profit.toLocaleString('en-US') + ' $';
+    }
+
+    // Hook vào luồng có sẵn (không thay đổi logic cũ)
+    const _oldUpdateCalc = updateCalculations;
+    updateCalculations = function () {
+        _oldUpdateCalc();
+        updateMonthlyStats();
+    };
+
+
+    // === FEATURE: QUICK ADD USD FOR DEVICES (SAFE) ===
+    // === FEATURE: QUICK ADD USD (UNDO-AWARE) ===
+    window.addUSD = function(inputId) {
+        const val = prompt("Nhập số USD muốn cộng thêm:");
+        if (val === null) return;
+
+        const add = parseFloat(val);
+        if (isNaN(add)) return alert("Số không hợp lệ");
+
+        // 👉 liên kết với Undo hiện tại
+        pushUndo();
+
+        const inp = document.getElementById(inputId);
+        inp.value = (parseFloat(inp.value) || 0) + add;
+
+        saveConfig();
+    }
+
+</script>
 
     <style>
         :root {
@@ -153,15 +204,30 @@
 
             <div class="input-group">
                 <label class="input-label">📱 USD Mi 11</label>
-                <input type="number" id="usdMi11" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+                
+    <div style="display:flex; gap:6px;">
+        <input type="number" id="usdMi11" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+        <button class="btn btn-flash" onclick="addUSD('usdMi11')">+</button>
+    </div>
+    
             </div>
             <div class="input-group">
                 <label class="input-label">💻 USD K60</label>
-                <input type="number" id="usdK60" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+                
+    <div style="display:flex; gap:6px;">
+        <input type="number" id="usdK60" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+        <button class="btn btn-flash" onclick="addUSD('usdK60')">+</button>
+    </div>
+    
             </div>
             <div class="input-group" style="grid-column: span 2;">
                 <label class="input-label">📱 USD N7</label>
-                <input type="number" id="usdN7" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+                
+    <div style="display:flex; gap:6px;">
+        <input type="number" id="usdN7" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+        <button class="btn btn-flash" onclick="addUSD('usdN7')">+</button>
+    </div>
+    
             </div>
 
             <div class="input-group" style="grid-column: span 2;">
@@ -181,11 +247,31 @@
         <div class="quick-actions">
             <button class="btn btn-blue" onclick="saveQuick()">Lưu Giao Dịch</button>
             <button class="btn btn-flash" onclick="spend10()">⚡ 10$</button>
-            <button id="btnUndo" class="btn btn-undo" onclick="execUndo()">↩ Undo</button>
+            <button id="btnUndo" class="btn btn-undo" onclick="execUndo()" title="Hoàn tác thao tác gần nhất">↩ Undo</button>
         </div>
         
         <button class="btn btn-excel" onclick="exportToExcel()">📊 Xuất File Excel</button>
     </div>
+
+    
+        <!-- === FEATURE 1: THỐNG KÊ THÁNG (SAFE ADDITION) === -->
+        <div class="glass-card">
+            <div class="input-label" style="margin-bottom:8px;">📊 THỐNG KÊ THÁNG HIỆN TẠI (ALPHA $)</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <div class="alpha-box" style="flex:1;">
+                    <div class="balance-label">TỔNG THU</div>
+                    <div class="alpha-total" id="monthIn">0 $</div>
+                </div>
+                <div class="alpha-box" style="flex:1;">
+                    <div class="balance-label">TỔNG CHI</div>
+                    <div class="alpha-total" id="monthOut">0 $</div>
+                </div>
+                <div class="alpha-box" style="flex:1;">
+                    <div class="balance-label">LÃI / LỖ</div>
+                    <div class="alpha-total" id="monthProfit">0 $</div>
+                </div>
+            </div>
+        </div>
 
     <div class="toggle-bar" onclick="toggleCal()">📅 Chạm để mở Lịch Sử</div>
 
@@ -338,19 +424,44 @@
 
     // --- UNDO ---
     function pushUndo() {
-        window.undoStack.push(JSON.parse(JSON.stringify(window.dataStore)));
+        window.undoStack.push({
+            data: JSON.parse(JSON.stringify(window.dataStore)),
+            config: JSON.parse(JSON.stringify(window.configStore))
+        });
         if(window.undoStack.length > 10) window.undoStack.shift();
         renderUndoBtn();
     }
     window.execUndo = function() {
         if(window.undoStack.length > 0) {
-            window.dataStore = window.undoStack.pop(); syncToCloud(); renderUndoBtn();
+            const prev = window.undoStack.pop();
+            window.dataStore = prev.data;
+            window.configStore = prev.config;
+
+            // restore UI values
+            document.getElementById('bankBalance').value = window.configStore.bank || '';
+            document.getElementById('usdMi11').value = window.configStore.mi11 || '';
+            document.getElementById('usdK60').value = window.configStore.k60 || '';
+            document.getElementById('usdN7').value = window.configStore.n7 || '';
+            document.getElementById('usdAlpha').value = window.configStore.alpha || 10206;
+            document.getElementById('exchangeRate').value = window.configStore.rate || 27000;
+
+            syncToCloud();
+            syncConfig();
+            updateCalculations();
+            renderUndoBtn();
         }
     }
     function renderUndoBtn() {
         const btn = document.getElementById('btnUndo');
-        if(window.undoStack.length>0) { btn.classList.add('active'); btn.innerText=`↩ (${window.undoStack.length})`; }
-        else { btn.classList.remove('active'); btn.innerText=`↩ Undo`; }
+        if(window.undoStack.length>0) {
+            btn.classList.add('active');
+            btn.innerText = `↩ (${window.undoStack.length})`;
+            btn.title = `Hoàn tác (${window.undoStack.length}) bước gần nhất`;
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = `↩ Undo`;
+            btn.title = 'Không có thao tác để hoàn tác';
+        }
     }
 
     // --- ACTIONS ---
@@ -464,6 +575,57 @@
     function showStatus(show) { document.getElementById('statusIndicator').style.opacity = show ? 1 : 0; }
 
     window.renderCal();
+
+    // === FEATURE 1: MONTHLY STATS (SAFE, READ-ONLY) ===
+    function updateMonthlyStats() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+
+        let sumIn = 0, sumOut = 0;
+
+        for (let k in window.dataStore) {
+            const [yy, mm] = k.split('-').map(Number);
+            if (yy === y && mm === m) {
+                sumIn += parseFloat(window.dataStore[k].in) || 0;
+                sumOut += parseFloat(window.dataStore[k].out) || 0;
+            }
+        }
+
+        const profit = sumIn - sumOut;
+
+        document.getElementById('monthIn').innerText = sumIn.toLocaleString('en-US') + ' $';
+        document.getElementById('monthOut').innerText = sumOut.toLocaleString('en-US') + ' $';
+        document.getElementById('monthProfit').innerText =
+            (profit >= 0 ? '+' : '') + profit.toLocaleString('en-US') + ' $';
+    }
+
+    // Hook vào luồng có sẵn (không thay đổi logic cũ)
+    const _oldUpdateCalc = updateCalculations;
+    updateCalculations = function () {
+        _oldUpdateCalc();
+        updateMonthlyStats();
+    };
+
+
+    // === FEATURE: QUICK ADD USD FOR DEVICES (SAFE) ===
+    // === FEATURE: QUICK ADD USD (UNDO-AWARE) ===
+    window.addUSD = function(inputId) {
+        const val = prompt("Nhập số USD muốn cộng thêm:");
+        if (val === null) return;
+
+        const add = parseFloat(val);
+        if (isNaN(add)) return alert("Số không hợp lệ");
+
+        // 👉 liên kết với Undo hiện tại
+        pushUndo();
+
+        const inp = document.getElementById(inputId);
+        inp.value = (parseFloat(inp.value) || 0) + add;
+
+        saveConfig();
+    }
+
 </script>
 </body>
 </html>
