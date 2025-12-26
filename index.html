@@ -3,382 +3,966 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản Lý Tài Chính Ultimate</title>
+    <title>Quản Lý Tài Chính Ultimate Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
-    // === FEATURE 1: MONTHLY STATS (SAFE, READ-ONLY) ===
-    // === FEATURE 2: MONTHLY PROFIT FOLLOW CALENDAR MONTH (SAFE) ===
-    function updateMonthlyStats() {
-        if (!window.currentDate) return;
-
-        const y = window.currentDate.getFullYear();
-        const m = window.currentDate.getMonth() + 1;
-
-        let sumIn = 0, sumOut = 0;
-
-        for (let k in window.dataStore) {
-            const [yy, mm] = k.split('-').map(Number);
-            if (yy === y && mm === m) {
-                sumIn += parseFloat(window.dataStore[k].in) || 0;
-                sumOut += parseFloat(window.dataStore[k].out) || 0;
-            }
-        }
-
-        const profit = sumIn - sumOut;
-
-        document.getElementById('monthIn').innerText = sumIn.toLocaleString('en-US') + ' $';
-        document.getElementById('monthOut').innerText = sumOut.toLocaleString('en-US') + ' $';
-        document.getElementById('monthProfit').innerText =
-            (profit >= 0 ? '+' : '') + profit.toLocaleString('en-US') + ' $';
-    }
-
-    // Hook vào luồng có sẵn (không thay đổi logic cũ)
-    const _oldUpdateCalc = updateCalculations;
-    updateCalculations = function () {
-        _oldUpdateCalc();
-        updateMonthlyStats();
-    };
-
-
-    // === FEATURE: QUICK ADD USD FOR DEVICES (SAFE) ===
-    // === FEATURE: QUICK ADD USD (UNDO-AWARE) ===
-    window.addUSD = function(inputId) {
-        const val = prompt("Nhập số USD muốn cộng thêm:");
-        if (val === null) return;
-
-        const add = parseFloat(val);
-        if (isNaN(add)) return alert("Số không hợp lệ");
-
-        // 👉 liên kết với Undo hiện tại
-        pushUndo();
-
-        const inp = document.getElementById(inputId);
-        inp.value = (parseFloat(inp.value) || 0) + add;
-
-        saveConfig();
-    }
-
-
-    // === HELPER: CALC PROFIT FOR CURRENT CALENDAR MONTH ===
-    function calcMonthlyProfitUSD() {
-        if (!window.currentDate) return 0;
-
-        const y = window.currentDate.getFullYear();
-        const m = window.currentDate.getMonth() + 1;
-
-        let tIn = 0, tOut = 0;
-        for (let k in window.dataStore) {
-            const [yy, mm] = k.split('-').map(Number);
-            if (yy === y && mm === m) {
-                tIn += parseFloat(window.dataStore[k].in) || 0;
-                tOut += parseFloat(window.dataStore[k].out) || 0;
-            }
-        }
-        return tIn - tOut;
-    }
-
-
-    // === FEATURE: BANK +/- (UNDO-AWARE, SAFE) ===
-    window.changeBank = function(dir) {
-        const val = prompt(dir > 0 ? "Nhập số VND muốn CỘNG:" : "Nhập số VND muốn TRỪ:");
-        if (val === null) return;
-
-        const amt = parseFloat(val);
-        if (isNaN(amt)) return alert("Số không hợp lệ");
-
-        pushUndo();
-
-        const inp = document.getElementById('bankBalance');
-        const cur = parseFloat(inp.value) || 0;
-        inp.value = dir > 0 ? cur + amt : cur - amt;
-
-        saveConfig();
-    }
-
-</script>
-
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --glass: rgba(255, 255, 255, 0.95);
+            --glass: rgba(255, 255, 255, 0.97);
             --green: #00b894;
             --red: #d63031;
             --blue: #0984e3;
             --purple: #6c5ce7;
+            --orange: #fdcb6e;
             --dark: #2d3436;
             --text-sub: #636e72;
             --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --shadow-sm: 0 4px 12px 0 rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             font-family: 'Poppins', sans-serif;
             background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            margin: 0; padding: 15px;
+            margin: 0; 
+            padding: 15px;
             min-height: 100vh;
             color: var(--dark);
-            display: flex; justify-content: center;
         }
 
-        .app-container { width: 100%; max-width: 800px; }
+        .app-container { 
+            width: 100%; 
+            max-width: 900px; 
+            margin: 0 auto;
+            position: relative;
+        }
 
+        /* HEADER STYLES */
+        .app-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        .app-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+            margin: 0 0 5px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .app-subtitle {
+            font-size: 12px;
+            color: var(--text-sub);
+            font-weight: 400;
+        }
+
+        .last-sync {
+            font-size: 11px;
+            color: #636e72;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        /* GLASS CARD */
         .glass-card {
             background: var(--glass);
             border-radius: 20px;
             box-shadow: var(--shadow);
-            padding: 20px; margin-bottom: 20px;
-            backdrop-filter: blur(5px);
+            padding: 20px; 
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        /* HEADER & BALANCE */
-        .dashboard-header { margin-bottom: 20px; border-bottom: 1px solid #dfe6e9; padding-bottom: 15px; }
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.2);
+        }
+
+        /* DASHBOARD HEADER */
+        .dashboard-header { 
+            margin-bottom: 20px; 
+            border-bottom: 1px solid #dfe6e9; 
+            padding-bottom: 15px; 
+        }
         
-        .balance-group { margin-bottom: 15px; }
-        .balance-label { font-size: 11px; text-transform: uppercase; color: var(--text-sub); font-weight: 700; letter-spacing: 0.5px; }
+        .balance-group { 
+            margin-bottom: 15px; 
+        }
         
-        .balance-total { font-size: 28px; font-weight: 700; color: var(--dark); margin: 0; line-height: 1.2; }
+        .balance-label { 
+            font-size: 11px; 
+            text-transform: uppercase; 
+            color: var(--text-sub); 
+            font-weight: 700; 
+            letter-spacing: 0.5px; 
+            margin-bottom: 4px;
+        }
+        
+        .balance-total { 
+            font-size: 28px; 
+            font-weight: 700; 
+            color: var(--dark); 
+            margin: 0; 
+            line-height: 1.2; 
+        }
         
         .alpha-box {
-            background: rgba(108, 92, 231, 0.1); padding: 10px 15px; border-radius: 12px;
-            margin-top: 10px; border: 1px solid rgba(108, 92, 231, 0.2);
+            background: rgba(108, 92, 231, 0.1); 
+            padding: 15px; 
+            border-radius: 12px;
+            margin-top: 15px; 
+            border: 1px solid rgba(108, 92, 231, 0.2);
         }
-        .alpha-total { font-size: 20px; font-weight: 700; color: var(--purple); }
+        
+        .alpha-total { 
+            font-size: 20px; 
+            font-weight: 700; 
+            color: var(--purple); 
+            margin: 5px 0;
+        }
 
         .profit-badge {
-            display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
-            background: rgba(0, 184, 148, 0.15); color: var(--green); margin-top: 5px;
+            display: inline-block; 
+            padding: 6px 12px; 
+            border-radius: 10px; 
+            font-size: 12px; 
+            font-weight: 700;
+            background: rgba(0, 184, 148, 0.15); 
+            color: var(--green); 
+            margin-top: 8px;
+            border: 1px solid rgba(0, 184, 148, 0.3);
         }
-        .profit-badge.neg { background: rgba(214, 48, 49, 0.15); color: var(--red); }
+        
+        .profit-badge.neg { 
+            background: rgba(214, 48, 49, 0.15); 
+            color: var(--red); 
+            border-color: rgba(214, 48, 49, 0.3);
+        }
 
         /* INPUTS GRID */
         .assets-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px;
+            margin-top: 10px;
         }
-        .input-group { position: relative; }
-        .input-label { font-size: 10px; font-weight: 700; color: var(--text-sub); margin-bottom: 3px; display: block; }
+        
+        .input-group { 
+            position: relative; 
+        }
+        
+        .input-label { 
+            font-size: 10px; 
+            font-weight: 700; 
+            color: var(--text-sub); 
+            margin-bottom: 5px; 
+            display: block; 
+        }
         
         .modern-input {
-            width: 100%; padding: 8px 10px; border: 1px solid #dfe6e9; border-radius: 8px;
-            font-size: 13px; font-weight: 600; outline: none; background: #fdfdfd; box-sizing: border-box;
+            width: 100%; 
+            padding: 10px 12px; 
+            border: 1px solid #dfe6e9; 
+            border-radius: 10px;
+            font-size: 14px; 
+            font-weight: 600; 
+            outline: none; 
+            background: #fdfdfd; 
             transition: 0.3s;
         }
-        .modern-input:focus { border-color: var(--blue); background: white; }
-        .inp-vnd { border-left: 3px solid var(--green); }
-        .inp-usd { border-left: 3px solid #fdcb6e; }
-        .inp-alpha { border-left: 3px solid var(--purple); }
-
-        /* ACTIONS */
-        .quick-actions { display: flex; gap: 8px; margin-top: 15px; align-items: center; }
-        .btn {
-            border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;
-            font-size: 12px; display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        
+        .modern-input:focus { 
+            border-color: var(--blue); 
+            background: white; 
+            box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.1);
         }
-        .btn:active { transform: scale(0.96); }
-        .btn-blue { background: var(--blue); color: white; flex: 1; }
-        .btn-flash { background: #fdcb6e; color: #d35400; width: 70px; }
-        .btn-undo { background: #b2bec3; color: white; width: 70px; opacity: 0.5; pointer-events: none; }
-        .btn-undo.active { opacity: 1; pointer-events: auto; background: #636e72; }
-        .btn-excel { background: #27ae60; color: white; width: 100%; margin-top: 10px; padding: 12px; }
+        
+        .inp-vnd { 
+            border-left: 4px solid var(--green); 
+        }
+        
+        .inp-usd { 
+            border-left: 4px solid var(--orange); 
+        }
+        
+        .inp-alpha { 
+            border-left: 4px solid var(--purple); 
+        }
+
+        /* BUTTONS */
+        .input-with-button {
+            display: flex; 
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .input-with-button input {
+            flex: 1;
+        }
+        
+        .btn {
+            border: none; 
+            padding: 10px 15px; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            cursor: pointer;
+            font-size: 12px; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            transition: all 0.2s;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn:active { 
+            transform: scale(0.98); 
+        }
+        
+        .btn-blue { 
+            background: var(--blue); 
+            color: white; 
+        }
+        
+        .btn-green { 
+            background: var(--green); 
+            color: white; 
+        }
+        
+        .btn-red { 
+            background: var(--red); 
+            color: white; 
+        }
+        
+        .btn-orange { 
+            background: var(--orange); 
+            color: #d35400; 
+        }
+        
+        .btn-purple { 
+            background: var(--purple); 
+            color: white; 
+        }
+        
+        .btn-gray { 
+            background: #b2bec3; 
+            color: white; 
+        }
+        
+        .btn-small {
+            padding: 6px 10px;
+            font-size: 11px;
+            min-width: 40px;
+        }
+
+        /* QUICK ACTIONS */
+        .quick-actions { 
+            display: flex; 
+            gap: 10px; 
+            margin-top: 20px; 
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-full {
+            width: 100%;
+            padding: 12px;
+            font-size: 13px;
+        }
+
+        /* MONTHLY STATS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #f1f2f6;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            border-color: var(--blue);
+            transform: translateY(-3px);
+        }
+        
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 5px 0;
+        }
+        
+        .stat-in { color: var(--green); }
+        .stat-out { color: var(--red); }
+        .stat-profit { color: var(--blue); }
 
         /* CALENDAR */
         .toggle-bar {
-            text-align: center; background: rgba(255,255,255,0.4); padding: 8px; color: var(--dark);
-            border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 12px; margin-bottom: 15px;
+            text-align: center; 
+            background: rgba(255,255,255,0.6); 
+            padding: 12px; 
+            color: var(--dark);
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-size: 13px; 
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
-        #calendarSection { display: none; }
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .cal-nav { background: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .toggle-bar:hover {
+            background: rgba(255,255,255,0.8);
+            border-color: var(--blue);
+        }
+        
+        #calendarSection { 
+            display: none; 
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .calendar-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+        }
+        
+        .cal-nav { 
+            background: white; 
+            border: none; 
+            border-radius: 50%; 
+            width: 36px; 
+            height: 36px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .cal-nav:hover {
+            background: var(--blue);
+            color: white;
+            transform: scale(1.1);
+        }
 
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .day-header { text-align: center; font-size: 10px; font-weight: 700; color: #b2bec3; margin-bottom: 5px; }
+        .calendar-grid { 
+            display: grid; 
+            grid-template-columns: repeat(7, 1fr); 
+            gap: 6px; 
+        }
+        
+        .day-header { 
+            text-align: center; 
+            font-size: 11px; 
+            font-weight: 700; 
+            color: #b2bec3; 
+            margin-bottom: 5px; 
+            padding: 5px;
+        }
 
         .day-card {
-            background: white; border-radius: 8px; min-height: 55px; padding: 4px; 
-            border: 1px solid #f1f2f6; cursor: pointer; position: relative;
-            display: flex; flex-direction: column; justify-content: space-between;
+            background: white; 
+            border-radius: 10px; 
+            min-height: 65px; 
+            padding: 6px; 
+            border: 1px solid #f1f2f6; 
+            cursor: pointer; 
+            position: relative;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between;
+            transition: all 0.2s;
         }
-        .day-card:hover { border-color: var(--blue); transform: translateY(-2px); z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .day-card.today { background: #e3f2fd; border-color: var(--blue); }
         
-        .val-txt { font-size: 9px; font-weight: 700; text-align: right; display: block; line-height: 1.1; }
-        .c-green { color: var(--green); }
-        .c-red { color: var(--red); }
+        .day-card:hover { 
+            border-color: var(--blue); 
+            transform: translateY(-2px); 
+            z-index: 2; 
+            box-shadow: 0 6px 15px rgba(0,0,0,0.08); 
+        }
+        
+        .day-card.today { 
+            background: #e3f2fd; 
+            border-color: var(--blue); 
+            border-width: 2px;
+        }
+        
+        .day-card.has-data {
+            background: #f9f9f9;
+        }
+        
+        .day-number {
+            font-size: 11px; 
+            font-weight: 700; 
+            color: #636e72; 
+            margin-bottom: 3px;
+        }
+        
+        .day-card.today .day-number {
+            color: var(--blue);
+            font-weight: 800;
+        }
+        
+        .val-txt { 
+            font-size: 9px; 
+            font-weight: 700; 
+            text-align: right; 
+            display: block; 
+            line-height: 1.2; 
+            margin-top: 2px;
+        }
+        
+        .c-green { 
+            color: var(--green); 
+        }
+        
+        .c-red { 
+            color: var(--red); 
+        }
 
-        #statusIndicator {
-            position: fixed; bottom: 10px; right: 10px; font-size: 10px; 
-            background: var(--dark); color: white; padding: 5px 10px; border-radius: 20px; opacity: 0; transition: opacity 0.5s;
-        }
+        /* MODAL */
         .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 999; justify-content: center; align-items: center; backdrop-filter: blur(2px);
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0,0,0,0.6); 
+            z-index: 1000; 
+            justify-content: center; 
+            align-items: center; 
+            backdrop-filter: blur(3px);
+            animation: fadeIn 0.3s ease;
         }
-        .modal-content { background: white; width: 280px; padding: 20px; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        
+        .modal-content { 
+            background: white; 
+            width: 320px; 
+            max-width: 90%; 
+            padding: 25px; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 50px rgba(0,0,0,0.25);
+            animation: slideUp 0.3s ease;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* CHART */
+        .chart-container {
+            height: 200px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        /* STATUS INDICATOR */
+        #statusIndicator {
+            position: fixed; 
+            bottom: 15px; 
+            right: 15px; 
+            font-size: 11px; 
+            background: var(--dark); 
+            color: white; 
+            padding: 8px 15px; 
+            border-radius: 20px; 
+            opacity: 0; 
+            transition: opacity 0.5s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+
+        /* BACKUP STATUS */
+        .backup-status {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            font-size: 10px;
+            color: var(--text-sub);
+            background: rgba(255,255,255,0.9);
+            padding: 5px 10px;
+            border-radius: 10px;
+            border: 1px solid #dfe6e9;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dfe6e9;
+            padding-bottom: 5px;
+        }
+        
+        .tab-btn {
+            padding: 8px 15px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-sub);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            background: var(--blue);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .assets-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .quick-actions {
+                flex-direction: column;
+            }
+            
+            .quick-actions .btn {
+                width: 100%;
+            }
+            
+            .calendar-grid {
+                gap: 4px;
+            }
+            
+            .day-card {
+                min-height: 55px;
+                padding: 4px;
+            }
+            
+            .app-title {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .glass-card {
+                padding: 15px;
+            }
+            
+            .balance-total {
+                font-size: 24px;
+            }
+            
+            .alpha-total {
+                font-size: 18px;
+            }
+            
+            .calendar-grid {
+                grid-template-columns: repeat(7, 1fr);
+            }
+            
+            .day-card {
+                min-height: 50px;
+            }
+        }
+
+        /* LOADING */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* UTILITY CLASSES */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mb-10 { margin-bottom: 10px; }
+        .mt-10 { margin-top: 10px; }
+        .mb-15 { margin-bottom: 15px; }
+        .mt-15 { margin-top: 15px; }
+        .mb-20 { margin-bottom: 20px; }
+        .mt-20 { margin-top: 20px; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-5 { gap: 5px; }
+        .gap-10 { gap: 10px; }
+        .gap-15 { gap: 15px; }
+        .w-full { width: 100%; }
+
     </style>
 </head>
 <body>
 
 <div class="app-container">
-
-    <div class="glass-card">
-        <div class="dashboard-header">
-            <div class="balance-group">
-                <div class="balance-label">TỔNG SỐ DƯ</div>
-                <div class="balance-total" id="totalBalanceVND">0 ₫</div>
-            </div>
-
-            <div class="alpha-box">
-                <div class="balance-label" style="color: var(--purple)">TỔNG TỪ ALPHA</div>
-                <div class="alpha-total" id="alphaTotalVND">0 ₫</div>
-                <div id="profitBadge" class="profit-badge">Lãi tháng theo lịch: 0</div>
-            </div>
-        </div>
-
-        <div class="assets-grid">
-            <div class="input-group">
-                <label class="input-label">🏦 Số dư Bank (VND)</label>
-                
-    <div style="display:flex; gap:6px;">
-        <button class="btn btn-flash" onclick="changeBank(-1)">-</button>
-        <input type="number" id="bankBalance" class="modern-input inp-vnd" placeholder="VND..." onchange="saveConfig()">
-        <button class="btn btn-flash" onclick="changeBank(1)">+</button>
-    </div>
     
-            </div>
-            <div class="input-group">
-                <label class="input-label">💱 Tỷ giá (VND)</label>
-                <input type="number" id="exchangeRate" class="modern-input" value="27000" onchange="saveConfig()">
-            </div>
-
-            <div class="input-group">
-                <label class="input-label">📱 USD Mi 11</label>
-                
-    <div style="display:flex; gap:6px;">
-        <input type="number" id="usdMi11" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
-        <button class="btn btn-flash" onclick="addUSD('usdMi11')">+</button>
-    </div>
-    
-            </div>
-            <div class="input-group">
-                <label class="input-label">💻 USD K60</label>
-                
-    <div style="display:flex; gap:6px;">
-        <input type="number" id="usdK60" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
-        <button class="btn btn-flash" onclick="addUSD('usdK60')">+</button>
-    </div>
-    
-            </div>
-            <div class="input-group" style="grid-column: span 2;">
-                <label class="input-label">📱 USD N7</label>
-                
-    <div style="display:flex; gap:6px;">
-        <input type="number" id="usdN7" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
-        <button class="btn btn-flash" onclick="addUSD('usdN7')">+</button>
-    </div>
-    
-            </div>
-
-            <div class="input-group" style="grid-column: span 2;">
-                <label class="input-label" style="color: var(--purple)">⚛️ Vốn Alpha ($)</label>
-                <input type="number" id="usdAlpha" class="modern-input inp-alpha" value="10206" onchange="saveConfig()">
-            </div>
-        </div>
+    <!-- HEADER -->
+    <div class="app-header">
+        <h1 class="app-title">💰 Quản Lý Tài Chính Ultimate Pro</h1>
+        <div class="app-subtitle">Quản lý tài chính cá nhân thông minh & trực quan</div>
+        <div id="lastSync" class="last-sync">Chưa đồng bộ</div>
     </div>
 
-    <div class="glass-card">
-        <div class="input-label" style="margin-bottom:8px;">GIAO DỊCH HÔM NAY (ALPHA $)</div>
-        <div style="display:flex; gap:10px;">
-            <input type="number" id="quickIn" class="modern-input" placeholder="+ Thu ($)" style="border-color: #55efc4;">
-            <input type="number" id="quickOut" class="modern-input" placeholder="- Chi ($)" style="border-color: #fab1a0;">
-        </div>
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Tổng quan</button>
+        <button class="tab-btn" onclick="switchTab('calendar')">📅 Lịch sử</button>
+        <button class="tab-btn" onclick="switchTab('analytics')">📈 Thống kê</button>
+        <button class="tab-btn" onclick="switchTab('settings')">⚙️ Cài đặt</button>
+    </div>
+
+    <!-- DASHBOARD TAB -->
+    <div id="dashboardTab" class="tab-content active">
         
-        <div class="quick-actions">
-            <button class="btn btn-blue" onclick="saveQuick()">Lưu Giao Dịch</button>
-            <button class="btn btn-flash" onclick="spend10()">⚡ 10$</button>
-            <button id="btnUndo" class="btn btn-undo" onclick="execUndo()" title="Hoàn tác thao tác gần nhất">↩ Undo</button>
-        </div>
-        
-        <button class="btn btn-excel" onclick="exportToExcel()">📊 Xuất File Excel</button>
-    </div>
-
-    
-        <!-- === FEATURE 1: THỐNG KÊ THÁNG (SAFE ADDITION) === -->
+        <!-- TỔNG QUAN TÀI CHÍNH -->
         <div class="glass-card">
-            <div class="input-label" style="margin-bottom:8px;">📊 THỐNG KÊ THÁNG HIỆN TẠI (ALPHA $)</div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <div class="alpha-box" style="flex:1;">
-                    <div class="balance-label">TỔNG THU</div>
-                    <div class="alpha-total" id="monthIn">0 $</div>
+            <div class="dashboard-header">
+                <div class="balance-group">
+                    <div class="balance-label">TỔNG SỐ DƯ HIỆN TẠI</div>
+                    <div class="balance-total" id="totalBalanceVND">0 ₫</div>
+                    <small style="color: var(--text-sub);">Tổng số dư từ tất cả tài khoản</small>
                 </div>
-                <div class="alpha-box" style="flex:1;">
-                    <div class="balance-label">TỔNG CHI</div>
-                    <div class="alpha-total" id="monthOut">0 $</div>
+
+                <div class="alpha-box">
+                    <div class="balance-label" style="color: var(--purple)">📈 TÀI SẢN ALPHA</div>
+                    <div class="alpha-total" id="alphaTotalVND">0 ₫</div>
+                    <div id="profitBadge" class="profit-badge">Lãi tháng: Đang tính...</div>
                 </div>
-                <div class="alpha-box" style="flex:1;">
-                    <div class="balance-label">LÃI / LỖ</div>
-                    <div class="alpha-total" id="monthProfit">0 $</div>
+            </div>
+
+            <!-- CÁC KHOẢN TÀI SẢN -->
+            <div class="assets-grid">
+                <!-- BANK -->
+                <div class="input-group">
+                    <label class="input-label">🏦 Số dư Ngân hàng (VND)</label>
+                    <div class="input-with-button">
+                        <button class="btn btn-red btn-small" onclick="changeBank(-1)" title="Trừ từ tài khoản">-</button>
+                        <input type="number" id="bankBalance" class="modern-input inp-vnd" placeholder="Nhập số dư..." onchange="saveConfig()">
+                        <button class="btn btn-green btn-small" onclick="changeBank(1)" title="Cộng vào tài khoản">+</button>
+                    </div>
+                </div>
+
+                <!-- TỶ GIÁ -->
+                <div class="input-group">
+                    <label class="input-label">💱 Tỷ giá USD/VND</label>
+                    <input type="number" id="exchangeRate" class="modern-input" value="27000" onchange="saveConfig()" min="1" step="100">
+                </div>
+
+                <!-- USD MI 11 -->
+                <div class="input-group">
+                    <label class="input-label">📱 USD Mi 11</label>
+                    <div class="input-with-button">
+                        <input type="number" id="usdMi11" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+                        <button class="btn btn-orange btn-small" onclick="addUSD('usdMi11')" title="Thêm USD">+</button>
+                    </div>
+                </div>
+
+                <!-- USD K60 -->
+                <div class="input-group">
+                    <label class="input-label">💻 USD K60</label>
+                    <div class="input-with-button">
+                        <input type="number" id="usdK60" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+                        <button class="btn btn-orange btn-small" onclick="addUSD('usdK60')" title="Thêm USD">+</button>
+                    </div>
+                </div>
+
+                <!-- USD N7 -->
+                <div class="input-group">
+                    <label class="input-label">📱 USD N7</label>
+                    <div class="input-with-button">
+                        <input type="number" id="usdN7" class="modern-input inp-usd" placeholder="$..." onchange="saveConfig()">
+                        <button class="btn btn-orange btn-small" onclick="addUSD('usdN7')" title="Thêm USD">+</button>
+                    </div>
+                </div>
+
+                <!-- VỐN ALPHA -->
+                <div class="input-group">
+                    <label class="input-label" style="color: var(--purple)">⚛️ Vốn Alpha ($)</label>
+                    <input type="number" id="usdAlpha" class="modern-input inp-alpha" value="10206" onchange="saveConfig()" min="0">
                 </div>
             </div>
         </div>
 
-    <div class="toggle-bar" onclick="toggleCal()">📅 Chạm để mở Lịch Sử</div>
+        <!-- GIAO DỊCH NHANH -->
+        <div class="glass-card">
+            <div class="input-label" style="margin-bottom:10px;">⚡ GIAO DỊCH NHANH HÔM NAY (ALPHA $)</div>
+            <div class="flex gap-10 mb-15">
+                <input type="number" id="quickIn" class="modern-input" placeholder="+ Thu ($)" style="border-color: #00b894;">
+                <input type="number" id="quickOut" class="modern-input" placeholder="- Chi ($)" style="border-color: #d63031;">
+            </div>
+            
+            <div class="quick-actions">
+                <button class="btn btn-blue" onclick="saveQuick()">
+                    💾 Lưu Giao Dịch
+                </button>
+                <button class="btn btn-orange" onclick="spend10()">
+                    ⚡ Chi 10$
+                </button>
+                <button id="btnUndo" class="btn btn-gray" onclick="execUndo()" title="Hoàn tác thao tác gần nhất">
+                    ↩ Undo
+                </button>
+            </div>
+        </div>
 
-    <div id="calendarSection">
+        <!-- THỐNG KÊ THÁNG -->
+        <div class="glass-card">
+            <div class="input-label mb-10">📊 THỐNG KÊ THÁNG <span id="currentMonthText">HIỆN TẠI</span> (ALPHA $)</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="balance-label">TỔNG THU</div>
+                    <div class="stat-value stat-in" id="monthIn">0 $</div>
+                    <small style="color: var(--text-sub);">Thu nhập trong tháng</small>
+                </div>
+                <div class="stat-card">
+                    <div class="balance-label">TỔNG CHI</div>
+                    <div class="stat-value stat-out" id="monthOut">0 $</div>
+                    <small style="color: var(--text-sub);">Chi tiêu trong tháng</small>
+                </div>
+                <div class="stat-card">
+                    <div class="balance-label">LÃI / LỖ</div>
+                    <div class="stat-value stat-profit" id="monthProfit">0 $</div>
+                    <small style="color: var(--text-sub);">Lợi nhuận ròng</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- XUẤT EXCEL -->
+        <button class="btn btn-green btn-full" onclick="exportToExcel()">
+            📊 Xuất Báo Cáo Excel
+        </button>
+
+    </div>
+
+    <!-- CALENDAR TAB -->
+    <div id="calendarTab" class="tab-content">
         <div class="glass-card">
             <div class="calendar-header">
                 <button class="cal-nav" onclick="changeMonth(-1)">❮</button>
-                <span style="font-weight:700; font-size:14px;" id="monthDisplay">12/2025</span>
+                <span style="font-weight:700; font-size:16px;" id="monthDisplay">12/2025</span>
                 <button class="cal-nav" onclick="changeMonth(1)">❯</button>
             </div>
             
-            <div style="text-align:right; margin-bottom:10px;">
-                <small onclick="restoreData()" style="color:#0984e3; cursor:pointer; font-size:11px; text-decoration: underline;">🔄 Khôi phục dữ liệu gốc</small>
+            <div class="flex justify-between items-center mb-15">
+                <small onclick="restoreData()" style="color:#0984e3; cursor:pointer; font-size:12px; text-decoration: underline;">
+                    🔄 Khôi phục dữ liệu mẫu
+                </small>
+                <small onclick="clearMonthData()" style="color:#d63031; cursor:pointer; font-size:12px;">
+                    🗑️ Xóa dữ liệu tháng này
+                </small>
             </div>
 
             <div class="calendar-grid" id="calendar"></div>
         </div>
     </div>
 
+    <!-- ANALYTICS TAB -->
+    <div id="analyticsTab" class="tab-content">
+        <div class="glass-card">
+            <div class="input-label mb-15">📈 BIỂU ĐỒ THU CHI THEO THÁNG</div>
+            <div class="chart-container">
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div class="input-label mb-15">📋 TỔNG HỢP NĂM <span id="currentYear">2025</span></div>
+            <div id="yearSummary" style="font-size: 13px;">
+                Đang tải dữ liệu...
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div id="settingsTab" class="tab-content">
+        <div class="glass-card">
+            <div class="input-label mb-15">⚙️ CÀI ĐẶT HỆ THỐNG</div>
+            
+            <div class="flex flex-col gap-15">
+                <div>
+                    <label class="input-label">🔄 Sao lưu tự động</label>
+                    <select id="autoBackup" class="modern-input" onchange="updateBackupSetting()">
+                        <option value="5">5 phút</option>
+                        <option value="10" selected>10 phút</option>
+                        <option value="30">30 phút</option>
+                        <option value="60">1 giờ</option>
+                        <option value="0">Tắt</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="input-label">💾 Quản lý dữ liệu</label>
+                    <div class="flex gap-10 mt-10">
+                        <button class="btn btn-blue" onclick="backupData()">
+                            💾 Sao lưu ngay
+                        </button>
+                        <button class="btn btn-purple" onclick="importData()">
+                            📁 Nhập dữ liệu
+                        </button>
+                        <button class="btn btn-red" onclick="clearAllData()">
+                            🗑️ Xóa tất cả
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="input-label">🌐 Đồng bộ Firebase</label>
+                    <div class="flex items-center gap-10 mt-10">
+                        <span id="firebaseStatus" style="font-size:12px; color: var(--green);">
+                            ✅ Đã kết nối
+                        </span>
+                        <button class="btn btn-small btn-gray" onclick="toggleFirebase()">
+                            🔄 Toggle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<div id="statusIndicator">Đang đồng bộ...</div>
-
+<!-- MODAL EDIT -->
 <div class="modal-overlay" id="inputModal">
     <div class="modal-content">
-        <h4 id="modalTitle" style="margin-top:0; text-align:center;">Sửa giao dịch</h4>
-        <input type="number" id="modalIn" class="modern-input" placeholder="Thu ($)" style="margin-bottom:10px;">
-        <input type="number" id="modalOut" class="modern-input" placeholder="Chi ($)" style="margin-bottom:15px;">
-        <button class="btn btn-blue" onclick="saveModal()">Cập nhật</button>
-        <button class="btn" style="width:100%; margin-top:10px; background:#dfe6e9;" onclick="closeModal()">Đóng</button>
+        <h4 id="modalTitle" style="margin-top:0; text-align:center;">✏️ Sửa giao dịch ngày <span id="modalDate"></span></h4>
+        
+        <div class="mb-15">
+            <label class="input-label">📥 Thu nhập ($)</label>
+            <input type="number" id="modalIn" class="modern-input" placeholder="Số tiền thu..." step="0.01">
+        </div>
+        
+        <div class="mb-20">
+            <label class="input-label">📤 Chi tiêu ($)</label>
+            <input type="number" id="modalOut" class="modern-input" placeholder="Số tiền chi..." step="0.01">
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn btn-blue" onclick="saveModal()">
+                💾 Lưu thay đổi
+            </button>
+            <button class="btn btn-gray" onclick="closeModal()">
+                ✖️ Đóng
+            </button>
+        </div>
     </div>
 </div>
 
+<!-- STATUS INDICATOR -->
+<div id="statusIndicator">Đang đồng bộ...</div>
+
+<!-- BACKUP STATUS -->
+<div id="backupStatus" class="backup-status">⏳ Chưa sao lưu</div>
+
+<!-- HIDDEN FILE INPUT -->
+<input type="file" id="fileImport" style="display: none;" accept=".json,.xlsx">
+
 <script type="module">
+    // ========== CẤU HÌNH VÀ BIẾN TOÀN CỤC ==========
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // --- FIREBASE CONFIG ---
-    // ⚠️ HÃY DÁN CONFIG FIREBASE CỦA BẠN VÀO ĐÂY NẾU CHƯA CÓ ⚠️
+    // Firebase Configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyBk5BR4mtmv1Mcj4gYrbCKLwNiC5fhKlj4",
-      authDomain: "thu-nhap-6be80.firebaseapp.com",
-      databaseURL: "https://thu-nhap-6be80-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "thu-nhap-6be80",
-      storageBucket: "thu-nhap-6be80.firebasestorage.app",
-      messagingSenderId: "482191171526",
-      appId: "1:482191171526:web:358e486e9d28f194469cc7",
-      measurementId: "G-0B436SXQ0P"
+        apiKey: "AIzaSyBk5BR4mtmv1Mcj4gYrbCKLwNiC5fhKlj4",
+        authDomain: "thu-nhap-6be80.firebaseapp.com",
+        databaseURL: "https://thu-nhap-6be80-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "thu-nhap-6be80",
+        storageBucket: "thu-nhap-6be80.firebasestorage.app",
+        messagingSenderId: "482191171526",
+        appId: "1:482191171526:web:358e486e9d28f194469cc7",
+        measurementId: "G-0B436SXQ0P"
     };
 
-    let app, db;
-    try { app = initializeApp(firebaseConfig); db = getDatabase(app); } 
-    catch(e) { console.error("Chưa config Firebase"); }
-
-    // STATE
-    window.dataStore = {}; 
-    // Config: bank, các nguồn USD, alpha, rate
-    window.configStore = { bank: 0, mi11: 0, k60: 0, n7: 0, alpha: 10206, rate: 27000 };
-    window.undoStack = [];
-    window.currentDate = new Date(2025, 11, 1);
+    // State Management
+    window.dataStore = {};
+    window.configStore = {
+        bank: 0,
+        mi11: 0,
+        k60: 0,
+        n7: 0,
+        alpha: 10206,
+        rate: 27000,
+        settings: {
+            autoBackup: 10,
+            firebaseEnabled: true
+        }
+    };
     
-    // DATA MẪU T12
+    window.undoStack = [];
+    window.currentDate = new Date();
+    window.firebaseEnabled = true;
+    window.chart = null;
+    window.lastBackup = null;
+
+    // Sample Data
     const SAMPLE_DATA = {
         "2025-12-1": { in: 5, out: 10 }, "2025-12-2": { in: 0, out: 10 }, "2025-12-3": { in: 0, out: 10 },
         "2025-12-4": { in: 0, out: 10 }, "2025-12-5": { in: 0, out: 10 }, "2025-12-6": { in: 0, out: 10 },
@@ -393,34 +977,182 @@
         "2025-12-31": { in: 0, out: 10 }
     };
 
-    // --- FIREBASE SYNC ---
-    if(db) {
-        showStatus(true);
-        // Load Config
-        onValue(ref(db, 'config'), (snap) => {
-            const val = snap.val();
-            if(val) {
-                window.configStore = val;
-                document.getElementById('bankBalance').value = val.bank || '';
-                document.getElementById('usdMi11').value = val.mi11 || '';
-                document.getElementById('usdK60').value = val.k60 || '';
-                document.getElementById('usdN7').value = val.n7 || '';
-                document.getElementById('usdAlpha').value = val.alpha || 10206;
-                document.getElementById('exchangeRate').value = val.rate || 27000;
-                updateCalculations();
+    // ========== KHỞI TẠO FIREBASE ==========
+    let app, db;
+    
+    function initFirebase() {
+        try {
+            if (window.firebaseEnabled) {
+                app = initializeApp(firebaseConfig);
+                db = getDatabase(app);
+                console.log("✅ Firebase đã kết nối");
+                document.getElementById('firebaseStatus').innerText = '✅ Đã kết nối';
+                document.getElementById('firebaseStatus').style.color = 'var(--green)';
+                loadFirebaseData();
+            } else {
+                console.log("ℹ️ Firebase đã tắt");
+                document.getElementById('firebaseStatus').innerText = '❌ Đã tắt';
+                document.getElementById('firebaseStatus').style.color = 'var(--red)';
+                loadLocalData();
             }
-        });
-        // Load Data
-        onValue(ref(db, 'data'), (snap) => {
-            const val = snap.val();
-            if(val) window.dataStore = val;
-            else { window.dataStore = {...SAMPLE_DATA}; syncToCloud(); }
-            updateCalculations(); renderCal(); showStatus(false);
-        });
+        } catch (e) {
+            console.error("❌ Lỗi Firebase:", e);
+            document.getElementById('firebaseStatus').innerText = '❌ Lỗi kết nối';
+            document.getElementById('firebaseStatus').style.color = 'var(--red)';
+            loadLocalData();
+        }
     }
 
-    function syncToCloud() { if(!db) return; showStatus(true); set(ref(db, 'data'), window.dataStore); }
-    function syncConfig() { if(!db) return; set(ref(db, 'config'), window.configStore); }
+    function loadFirebaseData() {
+        if (!db) return;
+        
+        showStatus("🔄 Đang tải dữ liệu...");
+        
+        // Load Configuration
+        onValue(ref(db, 'config'), (snap) => {
+            const val = snap.val();
+            if (val) {
+                window.configStore = { ...window.configStore, ...val };
+                updateConfigUI();
+                updateCalculations();
+            }
+        }, { onlyOnce: true });
+        
+        // Load Transaction Data
+        onValue(ref(db, 'data'), (snap) => {
+            const val = snap.val();
+            if (val) {
+                window.dataStore = val;
+            } else {
+                window.dataStore = { ...SAMPLE_DATA };
+                syncToCloud();
+            }
+            updateCalculations();
+            renderCal();
+            updateChart();
+            updateYearSummary();
+            showStatus("✅ Đã tải xong", 2000);
+            updateLastSync();
+        }, { onlyOnce: true });
+    }
+
+    function loadLocalData() {
+        // Load từ localStorage
+        const savedData = localStorage.getItem('finance_data');
+        const savedConfig = localStorage.getItem('finance_config');
+        
+        if (savedData) {
+            window.dataStore = JSON.parse(savedData);
+        } else {
+            window.dataStore = { ...SAMPLE_DATA };
+        }
+        
+        if (savedConfig) {
+            window.configStore = { ...window.configStore, ...JSON.parse(savedConfig) };
+        }
+        
+        updateConfigUI();
+        updateCalculations();
+        renderCal();
+        updateChart();
+        updateYearSummary();
+        showStatus("✅ Đã tải dữ liệu cục bộ", 2000);
+    }
+
+    // ========== TIỆN ÍCH VÀ HÀM HỖ TRỢ ==========
+    function showStatus(message, duration = 3000) {
+        const indicator = document.getElementById('statusIndicator');
+        indicator.innerText = message;
+        indicator.style.opacity = 1;
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                indicator.style.opacity = 0;
+            }, duration);
+        }
+    }
+
+    function updateLastSync() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('lastSync').innerText = `Cập nhật lúc: ${timeStr}`;
+    }
+
+    function validateNumber(value, fieldName = 'giá trị') {
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 0) {
+            throw new Error(`${fieldName} không hợp lệ!`);
+        }
+        return num;
+    }
+
+    function formatCurrency(amount, currency = 'VND') {
+        if (currency === 'VND') {
+            return amount.toLocaleString('vi-VN') + ' ₫';
+        } else {
+            return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $';
+        }
+    }
+
+    function getTodayKey() {
+        const d = new Date();
+        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    }
+
+    // ========== QUẢN LÝ DỮ LIỆU ==========
+    function syncToCloud() {
+        if (!db || !window.firebaseEnabled) {
+            saveToLocal();
+            return;
+        }
+        
+        showStatus("🔄 Đang đồng bộ lên cloud...");
+        set(ref(db, 'data'), window.dataStore)
+            .then(() => {
+                showStatus("✅ Đã đồng bộ", 2000);
+                updateLastSync();
+            })
+            .catch(error => {
+                console.error("Lỗi đồng bộ:", error);
+                showStatus("❌ Lỗi đồng bộ", 3000);
+                saveToLocal(); // Fallback to localStorage
+            });
+    }
+
+    function syncConfig() {
+        if (!db || !window.firebaseEnabled) {
+            saveToLocal();
+            return;
+        }
+        
+        set(ref(db, 'config'), window.configStore)
+            .catch(error => {
+                console.error("Lỗi đồng bộ config:", error);
+                saveToLocal();
+            });
+    }
+
+    function saveToLocal() {
+        localStorage.setItem('finance_data', JSON.stringify(window.dataStore));
+        localStorage.setItem('finance_config', JSON.stringify(window.configStore));
+        window.lastBackup = new Date();
+        updateBackupStatus();
+    }
+
+    // ========== CẬP NHẬT GIAO DIỆN ==========
+    function updateConfigUI() {
+        const config = window.configStore;
+        document.getElementById('bankBalance').value = config.bank || '';
+        document.getElementById('usdMi11').value = config.mi11 || '';
+        document.getElementById('usdK60').value = config.k60 || '';
+        document.getElementById('usdN7').value = config.n7 || '';
+        document.getElementById('usdAlpha').value = config.alpha || 10206;
+        document.getElementById('exchangeRate').value = config.rate || 27000;
+        
+        if (config.settings) {
+            document.getElementById('autoBackup').value = config.settings.autoBackup || 10;
+        }
+    }
 
     window.saveConfig = function() {
         window.configStore = {
@@ -429,267 +1161,20 @@
             k60: parseFloat(document.getElementById('usdK60').value) || 0,
             n7: parseFloat(document.getElementById('usdN7').value) || 0,
             alpha: parseFloat(document.getElementById('usdAlpha').value) || 10206,
-            rate: parseFloat(document.getElementById('exchangeRate').value) || 27000
+            rate: parseFloat(document.getElementById('exchangeRate').value) || 27000,
+            settings: window.configStore.settings || { autoBackup: 10, firebaseEnabled: true }
         };
-        syncConfig(); updateCalculations();
-    }
-
-    // --- LOGIC TÍNH TOÁN (ĐÃ CẬP NHẬT) ---
-    function updateCalculations() {
-        // 1. Tính Lãi Ròng từ Lịch (USD)
-        // Lãi tháng theo lịch (theo tháng đang xem)
-        const profitUSD = calcMonthlyProfitUSD();
         
-        const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
+        syncConfig();
+        updateCalculations();
+        showStatus("💾 Đã lưu cấu hình", 1500);
+    }
 
-        // 2. Tính TỔNG SỐ DƯ HIỆN TẠI (Bank + Mi11 + K60 + N7) * Rate
-        const sumUsdAssets = mi11 + k60 + n7;
-        const totalBalanceVND = bank + (sumUsdAssets * rate);
-
-        // 3. Tính TỔNG ALPHA (Vốn Alpha + Lãi) * Rate
-        const alphaTotalVND = (alpha + profitUSD) * rate;
-
-        // 4. Tính Lãi quy đổi VND
-        const profitVND = profitUSD * rate;
-
-        // HIỂN THỊ
-        document.getElementById('totalBalanceVND').innerText = totalBalanceVND.toLocaleString('vi-VN') + ' ₫';
+    // ========== TÍNH TOÁN TÀI CHÍNH ==========
+    function calcMonthlyProfitUSD(year = null, month = null) {
+        const y = year || window.currentDate.getFullYear();
+        const m = month || window.currentDate.getMonth() + 1;
         
-        document.getElementById('alphaTotalVND').innerText = alphaTotalVND.toLocaleString('vi-VN') + ' ₫';
-        
-        // Cập nhật Badge Lãi Ròng
-        const pBadge = document.getElementById('profitBadge');
-        
-        const m = window.currentDate.getMonth() + 1;
-        const y = window.currentDate.getFullYear();
-        pBadge.innerText = `Lãi tháng ${m}/${y}: ${(profitUSD>0?'+':'') + profitUSD.toLocaleString('en-US')} $ (≈ ${profitVND.toLocaleString('vi-VN')} ₫)`;
-
-        pBadge.className = profitUSD < 0 ? 'profit-badge neg' : 'profit-badge';
-    }
-
-    // --- UNDO ---
-    function pushUndo() {
-        window.undoStack.push({
-            data: JSON.parse(JSON.stringify(window.dataStore)),
-            config: JSON.parse(JSON.stringify(window.configStore))
-        });
-        if(window.undoStack.length > 10) window.undoStack.shift();
-        renderUndoBtn();
-    }
-    window.execUndo = function() {
-        if(window.undoStack.length > 0) {
-            const prev = window.undoStack.pop();
-            window.dataStore = prev.data;
-            window.configStore = prev.config;
-
-            // restore UI values
-            document.getElementById('bankBalance').value = window.configStore.bank || '';
-            document.getElementById('usdMi11').value = window.configStore.mi11 || '';
-            document.getElementById('usdK60').value = window.configStore.k60 || '';
-            document.getElementById('usdN7').value = window.configStore.n7 || '';
-            document.getElementById('usdAlpha').value = window.configStore.alpha || 10206;
-            document.getElementById('exchangeRate').value = window.configStore.rate || 27000;
-
-            syncToCloud();
-            syncConfig();
-            updateCalculations();
-            renderUndoBtn();
-        }
-    }
-    function renderUndoBtn() {
-        const btn = document.getElementById('btnUndo');
-        if(window.undoStack.length>0) {
-            btn.classList.add('active');
-            btn.innerText = `↩ (${window.undoStack.length})`;
-            btn.title = `Hoàn tác (${window.undoStack.length}) bước gần nhất`;
-        } else {
-            btn.classList.remove('active');
-            btn.innerText = `↩ Undo`;
-            btn.title = 'Không có thao tác để hoàn tác';
-        }
-    }
-
-    // --- ACTIONS ---
-    function getToday() { const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
-
-    window.spend10 = function() {
-        pushUndo(); const k=getToday();
-        const cur = window.dataStore[k] || {in:0,out:0};
-        window.dataStore[k] = { in: cur.in, out: parseFloat(cur.out)+10 };
-        syncToCloud();
-    }
-    window.saveQuick = function() {
-        const inc=parseFloat(document.getElementById('quickIn').value)||0;
-        const exp=parseFloat(document.getElementById('quickOut').value)||0;
-        if(inc==0 && exp==0) return;
-        pushUndo(); const k=getToday();
-        const cur = window.dataStore[k] || {in:0,out:0};
-        window.dataStore[k] = { in: parseFloat(cur.in)+inc, out: parseFloat(cur.out)+exp };
-        document.getElementById('quickIn').value=''; document.getElementById('quickOut').value='';
-        syncToCloud();
-    }
-
-    // --- EXCEL EXPORT (CẬP NHẬT) ---
-    window.exportToExcel = function() {
-        if(!window.dataStore || Object.keys(window.dataStore).length===0) { alert("Chưa có dữ liệu!"); return; }
-        const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
-        
-        // Tính lại tổng để ghi vào Excel
-        let tIn = 0, tOut = 0;
-        for (let k in window.dataStore) { tIn += parseFloat(window.dataStore[k].in)||0; tOut += parseFloat(window.dataStore[k].out)||0; }
-        const profit = tIn - tOut;
-        const alphaTotalVND = (alpha + profit) * rate;
-        const mainTotalVND = bank + (mi11 + k60 + n7) * rate;
-
-        const data = [
-            ["BÁO CÁO TÀI CHÍNH CHI TIẾT"],
-            ["Ngày xuất:", new Date().toLocaleDateString('vi-VN')],
-            [],
-            ["1. TỔNG SỐ DƯ HIỆN TẠI (Bank + 3 USD)", mainTotalVND],
-            ["   - Số dư Bank (VND):", bank],
-            ["   - USD Mi 11:", mi11],
-            ["   - USD K60:", k60],
-            ["   - USD N7:", n7],
-            [],
-            ["2. HIỆU QUẢ ALPHA"],
-            ["   - Vốn Alpha:", alpha],
-            ["   - Lãi Ròng ($):", profit],
-            ["   - Tổng Alpha Quy Đổi (VND):", alphaTotalVND],
-            [],
-            ["3. TỶ GIÁ ÁP DỤNG", rate],
-            [],
-            ["4. CHI TIẾT GIAO DỊCH"],
-            ["Ngày", "Thu ($)", "Chi ($)", "Lợi nhuận ($)", "Quy đổi (VND)"]
-        ];
-
-        const keys = Object.keys(window.dataStore).sort((a,b)=>new Date(a)-new Date(b));
-        keys.forEach(key => {
-           const item = window.dataStore[key];
-           const prof = (parseFloat(item.in)||0)-(parseFloat(item.out)||0);
-           data.push([key, item.in, item.out, prof, prof*rate]);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Baocao");
-        XLSX.writeFile(wb, "TaiChinh_Ultimate.xlsx");
-    }
-
-    // --- UI HELPERS ---
-    window.toggleCal = function() { const el=document.getElementById('calendarSection'); el.style.display=(el.style.display==='block')?'none':'block'; }
-    
-    
-    window.changeMonth = function(s) {
-        window.currentDate.setMonth(window.currentDate.getMonth()+s);
-        window.renderCal();
-        updateMonthlyStats();   // thống kê tháng
-        updateCalculations();   // 🔥 bắt buộc để cập nhật profitBadge & Alpha
-    }
-
-
-    
-    window.renderCal = function() {
-        const y = window.currentDate.getFullYear(); const m = window.currentDate.getMonth();
-        document.getElementById('monthDisplay').innerText = `${m+1}/${y}`;
-        const cal = document.getElementById('calendar'); cal.innerHTML = '';
-        ['CN','T2','T3','T4','T5','T6','T7'].forEach(d => cal.innerHTML+=`<div class="day-header">${d}</div>`);
-        
-        const firstDay = new Date(y, m, 1).getDay(); const days = new Date(y, m+1, 0).getDate();
-        for(let i=0; i<firstDay; i++) cal.innerHTML += `<div></div>`;
-
-        for(let i=1; i<=days; i++) {
-            const k = `${y}-${m+1}-${i}`;
-            const d = window.dataStore[k] || {in:0,out:0};
-            const isToday = (new Date().toDateString() === new Date(y,m,i).toDateString()) ? 'today' : '';
-            let htmlVal = '';
-            if(d.in > 0) htmlVal += `<span class="val-txt c-green">+${parseFloat(d.in)}</span>`;
-            if(d.out > 0) htmlVal += `<span class="val-txt c-red">-${parseFloat(d.out)}</span>`;
-            cal.innerHTML += `<div class="day-card ${isToday}" onclick="openMod('${k}')"><div style="font-size:10px;font-weight:700;color:#ccc;">${i}</div><div>${htmlVal}</div></div>`;
-        }
-    }
-
-    let selKey=null;
-    window.openMod = function(k) {
-        selKey=k; const val=window.dataStore[k]||{in:0,out:0};
-        document.getElementById('modalIn').value=val.in||''; document.getElementById('modalOut').value=val.out||'';
-        document.getElementById('inputModal').style.display='flex';
-    }
-    window.closeModal = function() { document.getElementById('inputModal').style.display='none'; }
-    window.saveModal = function() {
-        pushUndo();
-        const inc=parseFloat(document.getElementById('modalIn').value)||0;
-        const exp=parseFloat(document.getElementById('modalOut').value)||0;
-        if(inc==0 && exp==0) delete window.dataStore[selKey];
-        else window.dataStore[selKey]={in:inc, out:exp};
-        syncToCloud(); closeModal();
-    }
-    window.restoreData = function() {
-        if(confirm("Khôi phục dữ liệu gốc?")) { pushUndo(); window.dataStore={...SAMPLE_DATA}; syncToCloud(); }
-    }
-    function showStatus(show) { document.getElementById('statusIndicator').style.opacity = show ? 1 : 0; }
-
-    window.renderCal();
-
-    // === FEATURE 1: MONTHLY STATS (SAFE, READ-ONLY) ===
-    // === FEATURE 2: MONTHLY PROFIT FOLLOW CALENDAR MONTH (SAFE) ===
-    function updateMonthlyStats() {
-        if (!window.currentDate) return;
-
-        const y = window.currentDate.getFullYear();
-        const m = window.currentDate.getMonth() + 1;
-
-        let sumIn = 0, sumOut = 0;
-
-        for (let k in window.dataStore) {
-            const [yy, mm] = k.split('-').map(Number);
-            if (yy === y && mm === m) {
-                sumIn += parseFloat(window.dataStore[k].in) || 0;
-                sumOut += parseFloat(window.dataStore[k].out) || 0;
-            }
-        }
-
-        const profit = sumIn - sumOut;
-
-        document.getElementById('monthIn').innerText = sumIn.toLocaleString('en-US') + ' $';
-        document.getElementById('monthOut').innerText = sumOut.toLocaleString('en-US') + ' $';
-        document.getElementById('monthProfit').innerText =
-            (profit >= 0 ? '+' : '') + profit.toLocaleString('en-US') + ' $';
-    }
-
-    // Hook vào luồng có sẵn (không thay đổi logic cũ)
-    const _oldUpdateCalc = updateCalculations;
-    updateCalculations = function () {
-        _oldUpdateCalc();
-        updateMonthlyStats();
-    };
-
-
-    // === FEATURE: QUICK ADD USD FOR DEVICES (SAFE) ===
-    // === FEATURE: QUICK ADD USD (UNDO-AWARE) ===
-    window.addUSD = function(inputId) {
-        const val = prompt("Nhập số USD muốn cộng thêm:");
-        if (val === null) return;
-
-        const add = parseFloat(val);
-        if (isNaN(add)) return alert("Số không hợp lệ");
-
-        // 👉 liên kết với Undo hiện tại
-        pushUndo();
-
-        const inp = document.getElementById(inputId);
-        inp.value = (parseFloat(inp.value) || 0) + add;
-
-        saveConfig();
-    }
-
-
-    // === HELPER: CALC PROFIT FOR CURRENT CALENDAR MONTH ===
-    function calcMonthlyProfitUSD() {
-        if (!window.currentDate) return 0;
-
-        const y = window.currentDate.getFullYear();
-        const m = window.currentDate.getMonth() + 1;
-
         let tIn = 0, tOut = 0;
         for (let k in window.dataStore) {
             const [yy, mm] = k.split('-').map(Number);
@@ -698,27 +1183,756 @@
                 tOut += parseFloat(window.dataStore[k].out) || 0;
             }
         }
-        return tIn - tOut;
+        return { income: tIn, expense: tOut, profit: tIn - tOut };
     }
 
+    function updateCalculations() {
+        // Lấy dữ liệu tháng hiện tại
+        const monthly = calcMonthlyProfitUSD();
+        
+        // Lấy cấu hình
+        const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
+        
+        // Tính tổng tài sản
+        const sumUsdAssets = mi11 + k60 + n7;
+        const totalBalanceVND = bank + (sumUsdAssets * rate);
+        
+        // Tính tài sản Alpha
+        const alphaTotalVND = (alpha + monthly.profit) * rate;
+        const profitVND = monthly.profit * rate;
+        
+        // Cập nhật giao diện
+        document.getElementById('totalBalanceVND').innerText = formatCurrency(totalBalanceVND, 'VND');
+        document.getElementById('alphaTotalVND').innerText = formatCurrency(alphaTotalVND, 'VND');
+        
+        // Cập nhật badge lợi nhuận
+        const pBadge = document.getElementById('profitBadge');
+        const m = window.currentDate.getMonth() + 1;
+        const y = window.currentDate.getFullYear();
+        
+        pBadge.innerText = `Lãi tháng ${m}/${y}: ${(monthly.profit >= 0 ? '+' : '') + monthly.profit.toFixed(2)} $ (≈ ${formatCurrency(profitVND, 'VND')})`;
+        pBadge.className = monthly.profit < 0 ? 'profit-badge neg' : 'profit-badge';
+        
+        // Cập nhật thống kê tháng
+        updateMonthlyStats();
+    }
 
-    // === FEATURE: BANK +/- (UNDO-AWARE, SAFE) ===
-    window.changeBank = function(dir) {
-        const val = prompt(dir > 0 ? "Nhập số VND muốn CỘNG:" : "Nhập số VND muốn TRỪ:");
-        if (val === null) return;
+    function updateMonthlyStats() {
+        const monthly = calcMonthlyProfitUSD();
+        
+        document.getElementById('monthIn').innerText = formatCurrency(monthly.income, 'USD');
+        document.getElementById('monthOut').innerText = formatCurrency(monthly.expense, 'USD');
+        document.getElementById('monthProfit').innerText = 
+            (monthly.profit >= 0 ? '+' : '') + formatCurrency(monthly.profit, 'USD');
+        
+        // Cập nhật text tháng hiện tại
+        const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                          'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        const currentMonth = window.currentDate.getMonth();
+        document.getElementById('currentMonthText').innerText = monthNames[currentMonth];
+    }
 
-        const amt = parseFloat(val);
-        if (isNaN(amt)) return alert("Số không hợp lệ");
+    // ========== UNDO SYSTEM ==========
+    function pushUndo() {
+        window.undoStack.push({
+            data: JSON.parse(JSON.stringify(window.dataStore)),
+            config: JSON.parse(JSON.stringify(window.configStore)),
+            timestamp: new Date()
+        });
+        
+        if (window.undoStack.length > 20) {
+            window.undoStack.shift();
+        }
+        
+        renderUndoBtn();
+    }
 
+    window.execUndo = function() {
+        if (window.undoStack.length > 0) {
+            const prev = window.undoStack.pop();
+            window.dataStore = prev.data;
+            window.configStore = prev.config;
+            
+            updateConfigUI();
+            syncToCloud();
+            syncConfig();
+            updateCalculations();
+            renderCal();
+            renderUndoBtn();
+            
+            showStatus("↩ Đã hoàn tác", 2000);
+        }
+    }
+
+    function renderUndoBtn() {
+        const btn = document.getElementById('btnUndo');
+        if (window.undoStack.length > 0) {
+            btn.classList.add('active');
+            btn.innerText = `↩ Undo (${window.undoStack.length})`;
+            btn.title = `Hoàn tác (${window.undoStack.length}) bước gần nhất`;
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = `↩ Undo`;
+            btn.title = 'Không có thao tác để hoàn tác';
+        }
+    }
+
+    // ========== QUICK ACTIONS ==========
+    window.spend10 = function() {
         pushUndo();
-
-        const inp = document.getElementById('bankBalance');
-        const cur = parseFloat(inp.value) || 0;
-        inp.value = dir > 0 ? cur + amt : cur - amt;
-
-        saveConfig();
+        const k = getTodayKey();
+        const cur = window.dataStore[k] || { in: 0, out: 0 };
+        window.dataStore[k] = { in: cur.in, out: parseFloat(cur.out) + 10 };
+        syncToCloud();
+        updateCalculations();
+        renderCal();
+        showStatus("⚡ Đã thêm chi phí 10$", 1500);
     }
 
+    window.saveQuick = function() {
+        const inc = parseFloat(document.getElementById('quickIn').value) || 0;
+        const exp = parseFloat(document.getElementById('quickOut').value) || 0;
+        
+        if (inc === 0 && exp === 0) {
+            showStatus("ℹ️ Nhập số liệu trước khi lưu", 2000);
+            return;
+        }
+        
+        pushUndo();
+        const k = getTodayKey();
+        const cur = window.dataStore[k] || { in: 0, out: 0 };
+        
+        window.dataStore[k] = {
+            in: parseFloat(cur.in) + inc,
+            out: parseFloat(cur.out) + exp
+        };
+        
+        document.getElementById('quickIn').value = '';
+        document.getElementById('quickOut').value = '';
+        
+        syncToCloud();
+        updateCalculations();
+        renderCal();
+        showStatus("💾 Đã lưu giao dịch", 1500);
+    }
+
+    window.addUSD = function(inputId) {
+        const val = prompt("Nhập số USD muốn cộng thêm:", "0");
+        if (val === null) return;
+        
+        try {
+            const add = validateNumber(val, "Số USD");
+            pushUndo();
+            
+            const inp = document.getElementById(inputId);
+            inp.value = (parseFloat(inp.value) || 0) + add;
+            
+            saveConfig();
+            showStatus(`✅ Đã thêm ${add}$`, 1500);
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    window.changeBank = function(dir) {
+        const action = dir > 0 ? "CỘNG" : "TRỪ";
+        const val = prompt(`Nhập số VND muốn ${action}:`, "0");
+        if (val === null) return;
+        
+        try {
+            const amt = validateNumber(val, "Số tiền");
+            pushUndo();
+            
+            const inp = document.getElementById('bankBalance');
+            const cur = parseFloat(inp.value) || 0;
+            inp.value = dir > 0 ? cur + amt : cur - amt;
+            
+            saveConfig();
+            showStatus(`✅ Đã ${dir > 0 ? 'cộng' : 'trừ'} ${formatCurrency(amt, 'VND')}`, 1500);
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    // ========== CALENDAR FUNCTIONS ==========
+    window.changeMonth = function(s) {
+        window.currentDate.setMonth(window.currentDate.getMonth() + s);
+        renderCal();
+        updateCalculations();
+        updateChart();
+    }
+
+    window.renderCal = function() {
+        const y = window.currentDate.getFullYear();
+        const m = window.currentDate.getMonth();
+        
+        document.getElementById('monthDisplay').innerText = `${m + 1}/${y}`;
+        
+        const cal = document.getElementById('calendar');
+        cal.innerHTML = '';
+        
+        // Day headers
+        ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].forEach(d => {
+            cal.innerHTML += `<div class="day-header">${d}</div>`;
+        });
+        
+        // Empty cells for days before 1st
+        const firstDay = new Date(y, m, 1).getDay();
+        for (let i = 0; i < firstDay; i++) {
+            cal.innerHTML += `<div></div>`;
+        }
+        
+        // Days of the month
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        const today = new Date();
+        
+        for (let i = 1; i <= daysInMonth; i++) {
+            const k = `${y}-${m + 1}-${i}`;
+            const d = window.dataStore[k] || { in: 0, out: 0 };
+            const isToday = today.getFullYear() === y && 
+                           today.getMonth() === m && 
+                           today.getDate() === i;
+            const hasData = d.in > 0 || d.out > 0;
+            
+            let dayClass = 'day-card';
+            if (isToday) dayClass += ' today';
+            if (hasData) dayClass += ' has-data';
+            
+            let htmlVal = `<div class="day-number">${i}</div>`;
+            
+            if (d.in > 0) {
+                htmlVal += `<span class="val-txt c-green">+${parseFloat(d.in).toFixed(1)}</span>`;
+            }
+            if (d.out > 0) {
+                htmlVal += `<span class="val-txt c-red">-${parseFloat(d.out).toFixed(1)}</span>`;
+            }
+            
+            cal.innerHTML += `<div class="${dayClass}" onclick="openMod('${k}')">${htmlVal}</div>`;
+        }
+    }
+
+    // ========== MODAL FUNCTIONS ==========
+    let selKey = null;
+
+    window.openMod = function(k) {
+        selKey = k;
+        const val = window.dataStore[k] || { in: '', out: '' };
+        
+        // Parse date for display
+        const [y, m, d] = k.split('-').map(Number);
+        const dateStr = `${d}/${m}/${y}`;
+        
+        document.getElementById('modalDate').innerText = dateStr;
+        document.getElementById('modalIn').value = val.in || '';
+        document.getElementById('modalOut').value = val.out || '';
+        document.getElementById('inputModal').style.display = 'flex';
+    }
+
+    window.closeModal = function() {
+        document.getElementById('inputModal').style.display = 'none';
+    }
+
+    window.saveModal = function() {
+        pushUndo();
+        
+        const inc = parseFloat(document.getElementById('modalIn').value) || 0;
+        const exp = parseFloat(document.getElementById('modalOut').value) || 0;
+        
+        if (inc === 0 && exp === 0) {
+            delete window.dataStore[selKey];
+        } else {
+            window.dataStore[selKey] = { in: inc, out: exp };
+        }
+        
+        syncToCloud();
+        updateCalculations();
+        renderCal();
+        closeModal();
+        showStatus("💾 Đã cập nhật giao dịch", 1500);
+    }
+
+    // ========== EXPORT/IMPORT FUNCTIONS ==========
+    window.exportToExcel = function() {
+        if (!window.dataStore || Object.keys(window.dataStore).length === 0) {
+            showStatus("❌ Chưa có dữ liệu!", 3000);
+            return;
+        }
+        
+        const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
+        
+        // Calculate totals
+        let tIn = 0, tOut = 0;
+        for (let k in window.dataStore) {
+            tIn += parseFloat(window.dataStore[k].in) || 0;
+            tOut += parseFloat(window.dataStore[k].out) || 0;
+        }
+        
+        const profit = tIn - tOut;
+        const alphaTotalVND = (alpha + profit) * rate;
+        const mainTotalVND = bank + (mi11 + k60 + n7) * rate;
+        
+        // Prepare data
+        const data = [
+            ["BÁO CÁO TÀI CHÍNH CHI TIẾT - QUẢN LÝ TÀI CHÍNH ULTIMATE PRO"],
+            ["Ngày xuất báo cáo:", new Date().toLocaleDateString('vi-VN') + ' ' + new Date().toLocaleTimeString('vi-VN')],
+            ["Người dùng:", "Quản trị viên"],
+            [],
+            ["=== TỔNG QUAN TÀI CHÍNH ==="],
+            ["Tổng số dư hiện tại:", mainTotalVND, "VND"],
+            ["Tổng tài sản Alpha:", alphaTotalVND, "VND"],
+            ["Lợi nhuận tháng:", profit, "USD"],
+            ["Lợi nhuận quy đổi:", profit * rate, "VND"],
+            [],
+            ["=== CHI TIẾT TÀI SẢN ==="],
+            ["Loại tài sản", "Số lượng", "Đơn vị", "Quy đổi (VND)"],
+            ["Số dư ngân hàng", bank, "VND", bank],
+            ["USD Mi 11", mi11, "USD", mi11 * rate],
+            ["USD K60", k60, "USD", k60 * rate],
+            ["USD N7", n7, "USD", n7 * rate],
+            ["Vốn Alpha", alpha, "USD", alpha * rate],
+            [],
+            ["=== THỐNG KÊ GIAO DỊCH ==="],
+            ["Tổng thu:", tIn, "USD"],
+            ["Tổng chi:", tOut, "USD"],
+            ["Tỷ giá áp dụng:", rate, "VND/USD"],
+            [],
+            ["=== CHI TIẾT GIAO DỊCH THEO NGÀY ==="],
+            ["Ngày", "Thu ($)", "Chi ($)", "Lợi nhuận ($)", "Quy đổi (VND)", "Ghi chú"]
+        ];
+        
+        // Sort dates
+        const keys = Object.keys(window.dataStore).sort((a, b) => new Date(a) - new Date(b));
+        
+        keys.forEach(key => {
+            const item = window.dataStore[key];
+            const prof = (parseFloat(item.in) || 0) - (parseFloat(item.out) || 0);
+            const note = prof > 0 ? "Lãi" : prof < 0 ? "Lỗ" : "Hòa vốn";
+            data.push([key, item.in || 0, item.out || 0, prof, prof * rate, note]);
+        });
+        
+        // Add summary row
+        data.push([]);
+        data.push(["TỔNG CỘNG", tIn, tOut, profit, profit * rate, profit > 0 ? "LÃI" : "LỖ"]);
+        
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // Auto-size columns
+        const wscols = [
+            { wch: 12 }, // Date
+            { wch: 10 }, // Income
+            { wch: 10 }, // Expense
+            { wch: 12 }, // Profit
+            { wch: 15 }, // Converted
+            { wch: 10 }  // Note
+        ];
+        ws['!cols'] = wscols;
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "BaoCaoTaiChinh");
+        
+        // Generate filename with date
+        const dateStr = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `BaoCaoTaiChinh_${dateStr}.xlsx`);
+        
+        showStatus("📊 Đã xuất file Excel thành công!", 3000);
+    }
+
+    function importData() {
+        document.getElementById('fileImport').click();
+    }
+
+    document.getElementById('fileImport').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const data = JSON.parse(event.target.result);
+                
+                if (confirm("Nhập dữ liệu này sẽ ghi đè dữ liệu hiện tại. Tiếp tục?")) {
+                    pushUndo();
+                    
+                    if (data.dataStore) {
+                        window.dataStore = data.dataStore;
+                    }
+                    if (data.configStore) {
+                        window.configStore = data.configStore;
+                        updateConfigUI();
+                    }
+                    
+                    syncToCloud();
+                    syncConfig();
+                    updateCalculations();
+                    renderCal();
+                    updateChart();
+                    
+                    showStatus("✅ Đã nhập dữ liệu thành công", 3000);
+                }
+            } catch (error) {
+                alert("Lỗi đọc file: " + error.message);
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset input
+        e.target.value = '';
+    });
+
+    function backupData() {
+        const backup = {
+            dataStore: window.dataStore,
+            configStore: window.configStore,
+            timestamp: new Date().toISOString(),
+            version: '1.0'
+        };
+        
+        const dataStr = JSON.stringify(backup, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `backup_finance_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        window.lastBackup = new Date();
+        updateBackupStatus();
+        showStatus("💾 Đã sao lưu dữ liệu", 2000);
+    }
+
+    // ========== CHART FUNCTIONS ==========
+    function updateChart() {
+        const ctx = document.getElementById('monthlyChart').getContext('2d');
+        
+        // Get data for last 6 months
+        const months = [];
+        const incomeData = [];
+        const expenseData = [];
+        const profitData = [];
+        
+        const currentDate = new Date();
+        
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+            const monthData = calcMonthlyProfitUSD(date.getFullYear(), date.getMonth() + 1);
+            
+            months.push(`${date.getMonth() + 1}/${date.getFullYear()}`);
+            incomeData.push(monthData.income);
+            expenseData.push(monthData.expense);
+            profitData.push(monthData.profit);
+        }
+        
+        // Destroy existing chart
+        if (window.chart) {
+            window.chart.destroy();
+        }
+        
+        // Create new chart
+        window.chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Thu ($)',
+                        data: incomeData,
+                        backgroundColor: 'rgba(0, 184, 148, 0.7)',
+                        borderColor: 'rgba(0, 184, 148, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Chi ($)',
+                        data: expenseData,
+                        backgroundColor: 'rgba(214, 48, 49, 0.7)',
+                        borderColor: 'rgba(214, 48, 49, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Lãi ($)',
+                        data: profitData,
+                        type: 'line',
+                        borderColor: 'rgba(9, 132, 227, 1)',
+                        backgroundColor: 'rgba(9, 132, 227, 0.1)',
+                        borderWidth: 2,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + ' $';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' $';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateYearSummary() {
+        const currentYear = window.currentDate.getFullYear();
+        document.getElementById('currentYear').innerText = currentYear;
+        
+        let totalIncome = 0;
+        let totalExpense = 0;
+        let monthsWithData = 0;
+        
+        const monthlyData = [];
+        
+        for (let month = 1; month <= 12; month++) {
+            const monthData = calcMonthlyProfitUSD(currentYear, month);
+            if (monthData.income > 0 || monthData.expense > 0) {
+                monthsWithData++;
+            }
+            
+            totalIncome += monthData.income;
+            totalExpense += monthData.expense;
+            
+            monthlyData.push({
+                month: month,
+                income: monthData.income,
+                expense: monthData.expense,
+                profit: monthData.profit
+            });
+        }
+        
+        const totalProfit = totalIncome - totalExpense;
+        const avgMonthlyProfit = monthsWithData > 0 ? totalProfit / monthsWithData : 0;
+        
+        let summaryHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="balance-label">TỔNG THU NĂM</div>
+                    <div class="stat-value stat-in">${formatCurrency(totalIncome, 'USD')}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="balance-label">TỔNG CHI NĂM</div>
+                    <div class="stat-value stat-out">${formatCurrency(totalExpense, 'USD')}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="balance-label">LÃI CẢ NĂM</div>
+                    <div class="stat-value stat-profit">${formatCurrency(totalProfit, 'USD')}</div>
+                </div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-sub);">
+                <p>📅 <strong>${monthsWithData}</strong> tháng có dữ liệu</p>
+                <p>📊 Lãi trung bình/tháng: <strong>${formatCurrency(avgMonthlyProfit, 'USD')}</strong></p>
+            </div>
+        `;
+        
+        document.getElementById('yearSummary').innerHTML = summaryHTML;
+    }
+
+    // ========== SETTINGS FUNCTIONS ==========
+    // SỬA LỖI Ở ĐÂY: Thêm hàm switchTab vào window object
+    window.switchTab = function(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Deactivate all tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected tab
+        const tabElement = document.getElementById(tabName + 'Tab');
+        if (tabElement) {
+            tabElement.classList.add('active');
+        }
+        
+        // Activate selected button
+        event.target.classList.add('active');
+        
+        // Update chart if switching to analytics
+        if (tabName === 'analytics') {
+            setTimeout(() => {
+                if (window.updateChart) updateChart();
+                if (window.updateYearSummary) updateYearSummary();
+            }, 100);
+        }
+    }
+
+    function updateBackupSetting() {
+        const interval = parseInt(document.getElementById('autoBackup').value);
+        window.configStore.settings.autoBackup = interval;
+        syncConfig();
+        
+        // Clear existing interval
+        if (window.backupInterval) {
+            clearInterval(window.backupInterval);
+        }
+        
+        // Set new interval if not 0
+        if (interval > 0) {
+            window.backupInterval = setInterval(() => {
+                saveToLocal();
+                showStatus("🔄 Đã sao lưu tự động", 2000);
+            }, interval * 60 * 1000);
+        }
+        
+        showStatus(`💾 Đã cài đặt sao lưu ${interval > 0 ? interval + ' phút' : 'tắt'}`, 2000);
+    }
+
+    function updateBackupStatus() {
+        const statusEl = document.getElementById('backupStatus');
+        if (window.lastBackup) {
+            const diff = Math.floor((new Date() - window.lastBackup) / 1000 / 60); // minutes
+            statusEl.innerText = `💾 Sao lưu: ${diff} phút trước`;
+            statusEl.style.color = diff < 60 ? 'var(--green)' : 'var(--orange)';
+        } else {
+            statusEl.innerText = '⏳ Chưa sao lưu';
+            statusEl.style.color = 'var(--red)';
+        }
+    }
+
+    window.toggleFirebase = function() {
+        window.firebaseEnabled = !window.firebaseEnabled;
+        window.configStore.settings.firebaseEnabled = window.firebaseEnabled;
+        
+        if (window.firebaseEnabled) {
+            initFirebase();
+        } else {
+            if (db) {
+                // Firebase will continue to run but we won't sync
+                showStatus("ℹ️ Đã tắt đồng bộ Firebase", 2000);
+            }
+            document.getElementById('firebaseStatus').innerText = '❌ Đã tắt';
+            document.getElementById('firebaseStatus').style.color = 'var(--red)';
+        }
+        
+        syncConfig();
+    }
+
+    window.clearMonthData = function() {
+        const currentYear = window.currentDate.getFullYear();
+        const currentMonth = window.currentDate.getMonth() + 1;
+        
+        if (confirm(`Bạn có chắc muốn xóa tất cả dữ liệu của tháng ${currentMonth}/${currentYear}?`)) {
+            pushUndo();
+            
+            // Remove all entries for current month
+            for (let key in window.dataStore) {
+                const [year, month] = key.split('-').map(Number);
+                if (year === currentYear && month === currentMonth) {
+                    delete window.dataStore[key];
+                }
+            }
+            
+            syncToCloud();
+            updateCalculations();
+            renderCal();
+            updateChart();
+            showStatus(`🗑️ Đã xóa dữ liệu tháng ${currentMonth}/${currentYear}`, 3000);
+        }
+    }
+
+    window.clearAllData = function() {
+        if (confirm("⚠️ CẢNH BÁO: Bạn sắp xóa TẤT CẢ dữ liệu. Hành động này không thể hoàn tác!\n\nNhập 'DELETE' để xác nhận:")) {
+            const confirmText = prompt("Nhập 'DELETE' để xác nhận xóa tất cả dữ liệu:");
+            if (confirmText === 'DELETE') {
+                pushUndo();
+                window.dataStore = {};
+                window.configStore = {
+                    bank: 0,
+                    mi11: 0,
+                    k60: 0,
+                    n7: 0,
+                    alpha: 10206,
+                    rate: 27000,
+                    settings: window.configStore.settings
+                };
+                
+                updateConfigUI();
+                syncToCloud();
+                syncConfig();
+                updateCalculations();
+                renderCal();
+                updateChart();
+                
+                showStatus("🗑️ Đã xóa tất cả dữ liệu", 3000);
+            }
+        }
+    }
+
+    window.restoreData = function() {
+        if (confirm("Khôi phục dữ liệu mẫu? Dữ liệu hiện tại sẽ bị thay thế.")) {
+            pushUndo();
+            window.dataStore = { ...SAMPLE_DATA };
+            syncToCloud();
+            updateCalculations();
+            renderCal();
+            updateChart();
+            showStatus("🔄 Đã khôi phục dữ liệu mẫu", 3000);
+        }
+    }
+
+    // ========== INITIALIZATION ==========
+    function init() {
+        // Load settings from localStorage first
+        const savedSettings = localStorage.getItem('finance_settings');
+        if (savedSettings) {
+            try {
+                const settings = JSON.parse(savedSettings);
+                window.firebaseEnabled = settings.firebaseEnabled !== false;
+            } catch (e) {
+                console.error("Error loading settings:", e);
+            }
+        }
+        
+        // Initialize Firebase
+        initFirebase();
+        
+        // Setup auto-backup
+        updateBackupSetting();
+        
+        // Initial render
+        renderCal();
+        updateCalculations();
+        updateBackupStatus();
+        
+        // Auto-save on page unload
+        window.addEventListener('beforeunload', () => {
+            saveToLocal();
+        });
+        
+        // Auto-save every minute if there are changes
+        setInterval(() => {
+            if (Object.keys(window.dataStore).length > 0) {
+                saveToLocal();
+            }
+        }, 60000); // 1 minute
+        
+        console.log("✅ Ứng dụng đã khởi động thành công!");
+    }
+
+    // Start the application
+    document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
