@@ -525,6 +525,7 @@
             margin-bottom: 20px;
             border-bottom: 1px solid #dfe6e9;
             padding-bottom: 5px;
+            flex-wrap: wrap;
         }
         
         .tab-btn {
@@ -537,6 +538,7 @@
             color: var(--text-sub);
             cursor: pointer;
             transition: all 0.3s;
+            white-space: nowrap;
         }
         
         .tab-btn.active {
@@ -551,6 +553,145 @@
         .tab-content.active {
             display: block;
             animation: fadeIn 0.5s ease;
+        }
+
+        /* LOGS STYLES */
+        .logs-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 10px;
+            background: #f8f9fa;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        
+        .log-entry {
+            background: white;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid var(--blue);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .log-entry.success {
+            border-left-color: var(--green);
+        }
+        
+        .log-entry.warning {
+            border-left-color: var(--orange);
+        }
+        
+        .log-entry.error {
+            border-left-color: var(--red);
+        }
+        
+        .log-entry.info {
+            border-left-color: var(--blue);
+        }
+        
+        .log-time {
+            font-size: 9px;
+            color: var(--text-sub);
+            font-weight: 600;
+            margin-bottom: 3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .log-action {
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 2px;
+        }
+        
+        .log-details {
+            color: #555;
+            margin-top: 3px;
+        }
+        
+        .log-old-value {
+            color: var(--red);
+            font-weight: 600;
+        }
+        
+        .log-new-value {
+            color: var(--green);
+            font-weight: 600;
+        }
+        
+        .log-diff {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            margin-left: 5px;
+        }
+        
+        .log-diff.positive {
+            background: rgba(0, 184, 148, 0.15);
+            color: var(--green);
+        }
+        
+        .log-diff.negative {
+            background: rgba(214, 48, 49, 0.15);
+            color: var(--red);
+        }
+        
+        .logs-filter {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #dfe6e9;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn.active {
+            background: var(--blue);
+            color: white;
+            border-color: var(--blue);
+        }
+        
+        .logs-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .log-stat {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            border: 1px solid #dfe6e9;
+        }
+        
+        .log-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .log-stat-label {
+            font-size: 10px;
+            color: var(--text-sub);
+            margin-top: 3px;
         }
 
         /* ANIMATIONS */
@@ -600,6 +741,16 @@
             .app-title {
                 font-size: 20px;
             }
+            
+            .tabs {
+                overflow-x: auto;
+                padding-bottom: 3px;
+            }
+            
+            .tab-btn {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -621,6 +772,14 @@
             
             .day-card {
                 min-height: 50px;
+            }
+            
+            .logs-filter {
+                flex-direction: column;
+            }
+            
+            .filter-btn {
+                width: 100%;
             }
         }
 
@@ -657,6 +816,7 @@
         .gap-10 { gap: 10px; }
         .gap-15 { gap: 15px; }
         .w-full { width: 100%; }
+        .hidden { display: none; }
 
     </style>
 </head>
@@ -676,6 +836,7 @@
         <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Tổng quan</button>
         <button class="tab-btn" onclick="switchTab('calendar')">📅 Lịch sử</button>
         <button class="tab-btn" onclick="switchTab('analytics')">📈 Thống kê</button>
+        <button class="tab-btn" onclick="switchTab('logs')">📝 Logs</button>
         <button class="tab-btn" onclick="switchTab('settings')">⚙️ Cài đặt</button>
     </div>
 
@@ -840,6 +1001,96 @@
         </div>
     </div>
 
+    <!-- LOGS TAB -->
+    <div id="logsTab" class="tab-content">
+        <div class="glass-card">
+            <div class="input-label mb-15">📝 LỊCH SỬ THAY ĐỔI DỮ LIỆU</div>
+            
+            <div class="logs-stats">
+                <div class="log-stat">
+                    <div class="log-stat-value" id="totalLogs">0</div>
+                    <div class="log-stat-label">Tổng số logs</div>
+                </div>
+                <div class="log-stat">
+                    <div class="log-stat-value" id="todayLogs">0</div>
+                    <div class="log-stat-label">Hôm nay</div>
+                </div>
+                <div class="log-stat">
+                    <div class="log-stat-value" id="last7DaysLogs">0</div>
+                    <div class="log-stat-label">7 ngày qua</div>
+                </div>
+            </div>
+            
+            <div class="logs-filter">
+                <button class="filter-btn active" onclick="filterLogs('all')">Tất cả</button>
+                <button class="filter-btn" onclick="filterLogs('bank')">🏦 Ngân hàng</button>
+                <button class="filter-btn" onclick="filterLogs('usd')">💵 USD</button>
+                <button class="filter-btn" onclick="filterLogs('alpha')">⚛️ Alpha</button>
+                <button class="filter-btn" onclick="filterLogs('transaction')">💱 Giao dịch</button>
+                <button class="filter-btn" onclick="filterLogs('sync')">🔄 Đồng bộ</button>
+                <button class="filter-btn" onclick="filterLogs('config')">⚙️ Cấu hình</button>
+                <button class="filter-btn" onclick="filterLogs('system')">🖥️ Hệ thống</button>
+            </div>
+            
+            <div class="flex justify-between items-center mb-10">
+                <div style="font-size: 11px; color: var(--text-sub);">
+                    Hiển thị <span id="showingLogs">0</span>/<span id="totalFilteredLogs">0</span> logs
+                </div>
+                <div class="flex gap-5">
+                    <button class="btn btn-small btn-gray" onclick="clearLogs()" title="Xóa tất cả logs">
+                        🗑️ Xóa logs
+                    </button>
+                    <button class="btn btn-small btn-blue" onclick="exportLogs()" title="Xuất logs ra file">
+                        📤 Xuất logs
+                    </button>
+                </div>
+            </div>
+            
+            <div class="logs-container" id="logsList">
+                <!-- Logs sẽ hiển thị ở đây -->
+                <div style="text-align: center; padding: 20px; color: var(--text-sub);">
+                    <div>📝</div>
+                    <div>Đang tải logs...</div>
+                </div>
+            </div>
+            
+            <div class="flex justify-between mt-10">
+                <button class="btn btn-small btn-gray" onclick="loadMoreLogs()" id="loadMoreBtn">
+                    📥 Tải thêm
+                </button>
+                <div style="font-size: 10px; color: var(--text-sub);">
+                    Tự động lưu mọi thay đổi
+                </div>
+            </div>
+        </div>
+        
+        <div class="glass-card">
+            <div class="input-label mb-10">🔍 TÌM KIẾM LOGS</div>
+            <div class="flex gap-10">
+                <input type="text" id="searchLogs" class="modern-input" placeholder="Tìm kiếm từ khóa..." 
+                       onkeyup="searchLogs()" style="flex: 1;">
+                <input type="date" id="logDateFilter" class="modern-input" onchange="filterByDate()">
+            </div>
+            <div class="flex gap-10 mt-10">
+                <select id="logActionFilter" class="modern-input" onchange="filterByAction()" style="flex: 1;">
+                    <option value="">Tất cả hành động</option>
+                    <option value="bank_change">Thay đổi số dư bank</option>
+                    <option value="usd_change">Thay đổi USD</option>
+                    <option value="alpha_change">Thay đổi Alpha</option>
+                    <option value="transaction_add">Thêm giao dịch</option>
+                    <option value="transaction_edit">Sửa giao dịch</option>
+                    <option value="transaction_delete">Xóa giao dịch</option>
+                    <option value="sync">Đồng bộ dữ liệu</option>
+                    <option value="config_change">Thay đổi cấu hình</option>
+                    <option value="system">Hệ thống</option>
+                </select>
+                <button class="btn btn-small btn-gray" onclick="resetLogFilters()">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- SETTINGS TAB -->
     <div id="settingsTab" class="tab-content">
         <div class="glass-card">
@@ -883,6 +1134,23 @@
                         </button>
                     </div>
                 </div>
+                
+                <div>
+                    <label class="input-label">📝 Cài đặt Logs</label>
+                    <div class="flex flex-col gap-5 mt-5">
+                        <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="enableLogs" checked onchange="toggleLogs()">
+                            Bật ghi logs tự động
+                        </label>
+                        <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="logSensitiveData" onchange="toggleSensitiveLogs()">
+                            Ghi logs dữ liệu nhạy cảm (số dư, giá trị)
+                        </label>
+                        <div style="font-size: 10px; color: var(--text-sub); margin-top: 5px;">
+                            Logs sẽ tự động lưu vào localStorage và Firebase
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -909,6 +1177,23 @@
                 💾 Lưu thay đổi
             </button>
             <button class="btn btn-gray" onclick="closeModal()">
+                ✖️ Đóng
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- LOG DETAIL MODAL -->
+<div class="modal-overlay" id="logDetailModal">
+    <div class="modal-content">
+        <h4 style="margin-top:0; text-align:center;">📋 Chi tiết Log</h4>
+        
+        <div id="logDetailContent" style="font-size: 12px; line-height: 1.5;">
+            <!-- Chi tiết log sẽ hiển thị ở đây -->
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn btn-gray" onclick="closeLogDetail()">
                 ✖️ Đóng
             </button>
         </div>
@@ -952,7 +1237,9 @@
         rate: 27000,
         settings: {
             autoBackup: 10,
-            firebaseEnabled: true
+            firebaseEnabled: true,
+            logsEnabled: true,
+            logSensitiveData: false
         }
     };
     
@@ -961,6 +1248,15 @@
     window.firebaseEnabled = true;
     window.chart = null;
     window.lastBackup = null;
+    
+    // Logs System
+    window.logsStore = [];
+    window.logsFilter = 'all';
+    window.logsLimit = 50;
+    window.logsOffset = 0;
+    window.logsSearchTerm = '';
+    window.logsDateFilter = '';
+    window.logsActionFilter = '';
 
     // Sample Data
     const SAMPLE_DATA = {
@@ -975,6 +1271,524 @@
         "2025-12-25": { in: 0, out: 10 }, "2025-12-26": { in: 0, out: 10 }, "2025-12-27": { in: 0, out: 10 },
         "2025-12-28": { in: 0, out: 10 }, "2025-12-29": { in: 0, out: 10 }, "2025-12-30": { in: 0, out: 10 },
         "2025-12-31": { in: 0, out: 10 }
+    };
+
+    // ========== LOGS SYSTEM ==========
+    
+    // Hàm ghi log
+    window.addLog = function(action, details) {
+        if (!window.configStore.settings.logsEnabled) return;
+        
+        const logEntry = {
+            id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+            timestamp: new Date().toISOString(),
+            action: action,
+            details: details,
+            userAgent: navigator.userAgent,
+            category: details.category || 'system'
+        };
+        
+        window.logsStore.unshift(logEntry); // Thêm vào đầu mảng
+        
+        // Giới hạn số lượng logs (giữ 1000 bản ghi mới nhất)
+        if (window.logsStore.length > 1000) {
+            window.logsStore = window.logsStore.slice(0, 1000);
+        }
+        
+        // Lưu logs
+        saveLogsToStorage();
+        
+        // Cập nhật UI nếu đang ở tab logs
+        if (document.getElementById('logsTab').classList.contains('active')) {
+            renderLogs();
+        }
+        
+        return logEntry;
+    };
+    
+    // Lưu logs vào storage
+    function saveLogsToStorage() {
+        if (!window.configStore.settings.logsEnabled) return;
+        
+        try {
+            // Lưu vào localStorage
+            localStorage.setItem('finance_logs', JSON.stringify(window.logsStore));
+            
+            // Đồng bộ lên Firebase nếu có
+            if (db && window.firebaseEnabled) {
+                set(ref(db, 'logs'), window.logsStore)
+                    .catch(error => {
+                        console.error("Lỗi đồng bộ logs:", error);
+                        // Không hiển thị lỗi cho người dùng
+                    });
+            }
+        } catch (error) {
+            console.error("Lỗi lưu logs:", error);
+        }
+    }
+    
+    // Load logs từ storage
+    function loadLogsFromStorage() {
+        try {
+            // Thử load từ localStorage trước
+            const savedLogs = localStorage.getItem('finance_logs');
+            if (savedLogs) {
+                window.logsStore = JSON.parse(savedLogs);
+            }
+            
+            // Load từ Firebase nếu có
+            if (db && window.firebaseEnabled) {
+                onValue(ref(db, 'logs'), (snap) => {
+                    const val = snap.val();
+                    if (val && Array.isArray(val)) {
+                        // Merge với logs hiện tại, ưu tiên logs mới hơn
+                        const mergedLogs = [...val, ...window.logsStore];
+                        // Loại bỏ trùng lặp dựa trên id
+                        const uniqueLogs = mergedLogs.filter((log, index, self) =>
+                            index === self.findIndex((t) => t.id === log.id)
+                        );
+                        // Sắp xếp theo thời gian (mới nhất đầu tiên)
+                        window.logsStore = uniqueLogs.sort((a, b) => 
+                            new Date(b.timestamp) - new Date(a.timestamp)
+                        ).slice(0, 1000);
+                        
+                        saveLogsToStorage();
+                        renderLogs();
+                    }
+                }, { onlyOnce: true });
+            }
+            
+            renderLogs();
+        } catch (error) {
+            console.error("Lỗi load logs:", error);
+            window.logsStore = [];
+        }
+    }
+    
+    // Render logs ra UI
+    function renderLogs() {
+        const logsList = document.getElementById('logsList');
+        if (!logsList) return;
+        
+        // Lọc logs
+        let filteredLogs = window.logsStore;
+        
+        // Lọc theo category
+        if (window.logsFilter !== 'all') {
+            filteredLogs = filteredLogs.filter(log => {
+                if (window.logsFilter === 'bank') return log.details.category === 'bank';
+                if (window.logsFilter === 'usd') return log.details.category === 'usd';
+                if (window.logsFilter === 'alpha') return log.details.category === 'alpha';
+                if (window.logsFilter === 'transaction') return log.details.category === 'transaction';
+                if (window.logsFilter === 'sync') return log.details.category === 'sync';
+                if (window.logsFilter === 'config') return log.details.category === 'config';
+                if (window.logsFilter === 'system') return log.details.category === 'system';
+                return true;
+            });
+        }
+        
+        // Lọc theo từ khóa tìm kiếm
+        if (window.logsSearchTerm) {
+            const searchTerm = window.logsSearchTerm.toLowerCase();
+            filteredLogs = filteredLogs.filter(log => {
+                return JSON.stringify(log).toLowerCase().includes(searchTerm) ||
+                       (log.details.message && log.details.message.toLowerCase().includes(searchTerm)) ||
+                       (log.details.field && log.details.field.toLowerCase().includes(searchTerm));
+            });
+        }
+        
+        // Lọc theo ngày
+        if (window.logsDateFilter) {
+            filteredLogs = filteredLogs.filter(log => {
+                const logDate = new Date(log.timestamp).toISOString().split('T')[0];
+                return logDate === window.logsDateFilter;
+            });
+        }
+        
+        // Lọc theo action
+        if (window.logsActionFilter) {
+            filteredLogs = filteredLogs.filter(log => log.action === window.logsActionFilter);
+        }
+        
+        // Giới hạn số lượng hiển thị
+        const logsToShow = filteredLogs.slice(window.logsOffset, window.logsOffset + window.logsLimit);
+        
+        // Cập nhật thống kê
+        updateLogsStats(filteredLogs.length);
+        
+        // Render logs
+        if (logsToShow.length === 0) {
+            logsList.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: var(--text-sub);">
+                    <div>📭</div>
+                    <div>Không có logs nào</div>
+                </div>
+            `;
+            return;
+        }
+        
+        let logsHTML = '';
+        
+        logsToShow.forEach(log => {
+            const logTime = new Date(log.timestamp);
+            const timeStr = logTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const dateStr = logTime.toLocaleDateString('vi-VN');
+            
+            let logClass = 'log-entry';
+            let icon = '📝';
+            let actionText = '';
+            let detailsHTML = '';
+            
+            // Xác định loại log và icon
+            switch(log.action) {
+                case 'bank_change':
+                    logClass += ' info';
+                    icon = '🏦';
+                    actionText = 'Thay đổi số dư ngân hàng';
+                    if (log.details.oldValue !== undefined && log.details.newValue !== undefined) {
+                        const diff = log.details.newValue - log.details.oldValue;
+                        const diffClass = diff >= 0 ? 'positive' : 'negative';
+                        detailsHTML = `
+                            <div class="log-details">
+                                <span class="log-old-value">${formatCurrency(log.details.oldValue, 'VND')}</span> 
+                                → 
+                                <span class="log-new-value">${formatCurrency(log.details.newValue, 'VND')}</span>
+                                <span class="log-diff ${diffClass}">${diff >= 0 ? '+' : ''}${formatCurrency(diff, 'VND')}</span>
+                            </div>
+                        `;
+                    }
+                    break;
+                    
+                case 'usd_change':
+                    logClass += ' info';
+                    icon = '💵';
+                    actionText = `Thay đổi ${log.details.field || 'USD'}`;
+                    if (log.details.oldValue !== undefined && log.details.newValue !== undefined) {
+                        const diff = log.details.newValue - log.details.oldValue;
+                        const diffClass = diff >= 0 ? 'positive' : 'negative';
+                        detailsHTML = `
+                            <div class="log-details">
+                                <span class="log-old-value">${log.details.oldValue} $</span> 
+                                → 
+                                <span class="log-new-value">${log.details.newValue} $</span>
+                                <span class="log-diff ${diffClass}">${diff >= 0 ? '+' : ''}${diff.toFixed(2)} $</span>
+                            </div>
+                        `;
+                    }
+                    break;
+                    
+                case 'alpha_change':
+                    logClass += ' info';
+                    icon = '⚛️';
+                    actionText = 'Thay đổi vốn Alpha';
+                    if (log.details.oldValue !== undefined && log.details.newValue !== undefined) {
+                        const diff = log.details.newValue - log.details.oldValue;
+                        const diffClass = diff >= 0 ? 'positive' : 'negative';
+                        detailsHTML = `
+                            <div class="log-details">
+                                <span class="log-old-value">${log.details.oldValue} $</span> 
+                                → 
+                                <span class="log-new-value">${log.details.newValue} $</span>
+                                <span class="log-diff ${diffClass}">${diff >= 0 ? '+' : ''}${diff.toFixed(2)} $</span>
+                            </div>
+                        `;
+                    }
+                    break;
+                    
+                case 'transaction_add':
+                    logClass += ' success';
+                    icon = '➕';
+                    actionText = 'Thêm giao dịch';
+                    detailsHTML = `
+                        <div class="log-details">
+                            Ngày: ${log.details.date || 'N/A'}<br>
+                            Thu: ${log.details.in || 0} $ | Chi: ${log.details.out || 0} $
+                        </div>
+                    `;
+                    break;
+                    
+                case 'transaction_edit':
+                    logClass += ' warning';
+                    icon = '✏️';
+                    actionText = 'Sửa giao dịch';
+                    detailsHTML = `
+                        <div class="log-details">
+                            Ngày: ${log.details.date || 'N/A'}<br>
+                            Thu: ${log.details.oldIn || 0} $ → ${log.details.newIn || 0} $<br>
+                            Chi: ${log.details.oldOut || 0} $ → ${log.details.newOut || 0} $
+                        </div>
+                    `;
+                    break;
+                    
+                case 'transaction_delete':
+                    logClass += ' error';
+                    icon = '🗑️';
+                    actionText = 'Xóa giao dịch';
+                    detailsHTML = `
+                        <div class="log-details">
+                            Ngày: ${log.details.date || 'N/A'}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'sync':
+                    logClass += ' info';
+                    icon = '🔄';
+                    actionText = 'Đồng bộ dữ liệu';
+                    detailsHTML = `
+                        <div class="log-details">
+                            ${log.details.message || 'Đồng bộ thành công'}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'config_change':
+                    logClass += ' info';
+                    icon = '⚙️';
+                    actionText = 'Thay đổi cấu hình';
+                    if (log.details.field && log.details.oldValue !== undefined && log.details.newValue !== undefined) {
+                        detailsHTML = `
+                            <div class="log-details">
+                                ${log.details.field}: ${log.details.oldValue} → ${log.details.newValue}
+                            </div>
+                        `;
+                    }
+                    break;
+                    
+                case 'system':
+                    logClass += ' info';
+                    icon = '🖥️';
+                    actionText = 'Hệ thống';
+                    detailsHTML = `
+                        <div class="log-details">
+                            ${log.details.message || 'Thao tác hệ thống'}
+                        </div>
+                    `;
+                    break;
+                    
+                default:
+                    logClass += ' info';
+                    icon = '📝';
+                    actionText = log.action;
+                    detailsHTML = `
+                        <div class="log-details">
+                            ${JSON.stringify(log.details)}
+                        </div>
+                    `;
+            }
+            
+            // Thêm message nếu có
+            if (log.details.message && !detailsHTML.includes(log.details.message)) {
+                detailsHTML += `<div class="log-details">${log.details.message}</div>`;
+            }
+            
+            logsHTML += `
+                <div class="${logClass}" onclick="showLogDetail('${log.id}')" style="cursor: pointer;">
+                    <div class="log-time">
+                        <span>${icon} ${dateStr} ${timeStr}</span>
+                        <span style="font-size: 8px; background: #eee; padding: 1px 5px; border-radius: 3px;">
+                            ${log.category || 'system'}
+                        </span>
+                    </div>
+                    <div class="log-action">${actionText}</div>
+                    ${detailsHTML}
+                </div>
+            `;
+        });
+        
+        logsList.innerHTML = logsHTML;
+        
+        // Cập nhật thông tin hiển thị
+        document.getElementById('showingLogs').textContent = Math.min(window.logsOffset + window.logsLimit, filteredLogs.length);
+        document.getElementById('totalFilteredLogs').textContent = filteredLogs.length;
+        
+        // Ẩn/hiện nút "Tải thêm"
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+        if (loadMoreBtn) {
+            if (window.logsOffset + window.logsLimit >= filteredLogs.length) {
+                loadMoreBtn.style.display = 'none';
+            } else {
+                loadMoreBtn.style.display = 'block';
+            }
+        }
+    }
+    
+    // Cập nhật thống kê logs
+    function updateLogsStats(totalFiltered) {
+        const today = new Date().toISOString().split('T')[0];
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        const todayLogs = window.logsStore.filter(log => 
+            new Date(log.timestamp).toISOString().split('T')[0] === today
+        ).length;
+        
+        const last7DaysLogs = window.logsStore.filter(log => 
+            new Date(log.timestamp).toISOString().split('T')[0] >= sevenDaysAgo
+        ).length;
+        
+        document.getElementById('totalLogs').textContent = window.logsStore.length;
+        document.getElementById('todayLogs').textContent = todayLogs;
+        document.getElementById('last7DaysLogs').textContent = last7DaysLogs;
+        document.getElementById('showingLogs').textContent = Math.min(window.logsOffset + window.logsLimit, totalFiltered);
+        document.getElementById('totalFilteredLogs').textContent = totalFiltered;
+    }
+    
+    // Lọc logs
+    window.filterLogs = function(category) {
+        window.logsFilter = category;
+        window.logsOffset = 0;
+        
+        // Cập nhật trạng thái nút filter
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        renderLogs();
+    };
+    
+    // Tìm kiếm logs
+    window.searchLogs = function() {
+        window.logsSearchTerm = document.getElementById('searchLogs').value;
+        window.logsOffset = 0;
+        renderLogs();
+    };
+    
+    // Lọc theo ngày
+    window.filterByDate = function() {
+        window.logsDateFilter = document.getElementById('logDateFilter').value;
+        window.logsOffset = 0;
+        renderLogs();
+    };
+    
+    // Lọc theo action
+    window.filterByAction = function() {
+        window.logsActionFilter = document.getElementById('logActionFilter').value;
+        window.logsOffset = 0;
+        renderLogs();
+    };
+    
+    // Reset tất cả bộ lọc
+    window.resetLogFilters = function() {
+        window.logsFilter = 'all';
+        window.logsSearchTerm = '';
+        window.logsDateFilter = '';
+        window.logsActionFilter = '';
+        window.logsOffset = 0;
+        
+        document.getElementById('searchLogs').value = '';
+        document.getElementById('logDateFilter').value = '';
+        document.getElementById('logActionFilter').value = '';
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector('.filter-btn').classList.add('active');
+        
+        renderLogs();
+    };
+    
+    // Tải thêm logs
+    window.loadMoreLogs = function() {
+        window.logsOffset += window.logsLimit;
+        renderLogs();
+    };
+    
+    // Hiển thị chi tiết log
+    window.showLogDetail = function(logId) {
+        const log = window.logsStore.find(l => l.id === logId);
+        if (!log) return;
+        
+        const logTime = new Date(log.timestamp);
+        const modalContent = document.getElementById('logDetailContent');
+        
+        let detailsHTML = `
+            <div style="margin-bottom: 10px;">
+                <strong>Thời gian:</strong> ${logTime.toLocaleString('vi-VN')}
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong>Hành động:</strong> ${log.action}
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong>Danh mục:</strong> ${log.category || 'system'}
+            </div>
+        `;
+        
+        // Hiển thị chi tiết cụ thể
+        if (log.details) {
+            detailsHTML += `<div style="margin-bottom: 10px;"><strong>Chi tiết:</strong></div>`;
+            detailsHTML += `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 11px; max-height: 200px; overflow: auto;">${JSON.stringify(log.details, null, 2)}</pre>`;
+        }
+        
+        // Hiển thị thông tin trình duyệt
+        if (log.userAgent) {
+            detailsHTML += `
+                <div style="margin-top: 10px;">
+                    <strong>Thiết bị:</strong> ${log.userAgent}
+                </div>
+            `;
+        }
+        
+        modalContent.innerHTML = detailsHTML;
+        document.getElementById('logDetailModal').style.display = 'flex';
+    };
+    
+    // Đóng modal chi tiết log
+    window.closeLogDetail = function() {
+        document.getElementById('logDetailModal').style.display = 'none';
+    };
+    
+    // Xóa tất cả logs
+    window.clearLogs = function() {
+        if (confirm("Bạn có chắc muốn xóa TẤT CẢ logs? Hành động này không thể hoàn tác.")) {
+            window.logsStore = [];
+            saveLogsToStorage();
+            renderLogs();
+            showStatus("🗑️ Đã xóa tất cả logs", 2000);
+        }
+    };
+    
+    // Xuất logs ra file
+    window.exportLogs = function() {
+        if (window.logsStore.length === 0) {
+            showStatus("📭 Không có logs để xuất", 2000);
+            return;
+        }
+        
+        const exportData = {
+            logs: window.logsStore,
+            exportDate: new Date().toISOString(),
+            totalLogs: window.logsStore.length,
+            system: "Finance Manager Logs"
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `finance_logs_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showStatus("📤 Đã xuất logs thành công", 2000);
+    };
+    
+    // Bật/tắt logs
+    window.toggleLogs = function() {
+        window.configStore.settings.logsEnabled = document.getElementById('enableLogs').checked;
+        syncConfig();
+        showStatus(window.configStore.settings.logsEnabled ? "✅ Đã bật logs" : "❌ Đã tắt logs", 2000);
+    };
+    
+    // Bật/tắt logs dữ liệu nhạy cảm
+    window.toggleSensitiveLogs = function() {
+        window.configStore.settings.logSensitiveData = document.getElementById('logSensitiveData').checked;
+        syncConfig();
+        showStatus(window.configStore.settings.logSensitiveData ? "✅ Ghi logs chi tiết" : "❌ Ẩn logs chi tiết", 2000);
     };
 
     // ========== KHỞI TẠO FIREBASE ==========
@@ -1034,12 +1848,24 @@
             showStatus("✅ Đã tải xong", 2000);
             updateLastSync();
         }, { onlyOnce: true });
+        
+        // Load Logs
+        if (window.configStore.settings.logsEnabled) {
+            onValue(ref(db, 'logs'), (snap) => {
+                const val = snap.val();
+                if (val && Array.isArray(val)) {
+                    window.logsStore = val;
+                    renderLogs();
+                }
+            }, { onlyOnce: true });
+        }
     }
 
     function loadLocalData() {
         // Load từ localStorage
         const savedData = localStorage.getItem('finance_data');
         const savedConfig = localStorage.getItem('finance_config');
+        const savedLogs = localStorage.getItem('finance_logs');
         
         if (savedData) {
             window.dataStore = JSON.parse(savedData);
@@ -1051,11 +1877,16 @@
             window.configStore = { ...window.configStore, ...JSON.parse(savedConfig) };
         }
         
+        if (savedLogs && window.configStore.settings.logsEnabled) {
+            window.logsStore = JSON.parse(savedLogs);
+        }
+        
         updateConfigUI();
         updateCalculations();
         renderCal();
         updateChart();
         updateYearSummary();
+        renderLogs();
         showStatus("✅ Đã tải dữ liệu cục bộ", 2000);
     }
 
@@ -1069,6 +1900,14 @@
             setTimeout(() => {
                 indicator.style.opacity = 0;
             }, duration);
+        }
+        
+        // Ghi log hệ thống
+        if (window.configStore.settings.logsEnabled) {
+            addLog('system', {
+                message: message,
+                category: 'system'
+            });
         }
     }
 
@@ -1107,15 +1946,42 @@
         }
         
         showStatus("🔄 Đang đồng bộ lên cloud...");
+        
+        // Ghi log đồng bộ
+        if (window.configStore.settings.logsEnabled) {
+            addLog('sync', {
+                message: 'Bắt đầu đồng bộ dữ liệu lên cloud',
+                timestamp: new Date().toISOString(),
+                category: 'sync'
+            });
+        }
+        
         set(ref(db, 'data'), window.dataStore)
             .then(() => {
                 showStatus("✅ Đã đồng bộ", 2000);
                 updateLastSync();
+                
+                // Ghi log thành công
+                if (window.configStore.settings.logsEnabled) {
+                    addLog('sync', {
+                        message: 'Đồng bộ dữ liệu thành công',
+                        category: 'sync'
+                    });
+                }
             })
             .catch(error => {
                 console.error("Lỗi đồng bộ:", error);
                 showStatus("❌ Lỗi đồng bộ", 3000);
                 saveToLocal(); // Fallback to localStorage
+                
+                // Ghi log lỗi
+                if (window.configStore.settings.logsEnabled) {
+                    addLog('sync', {
+                        message: `Lỗi đồng bộ: ${error.message}`,
+                        error: error.toString(),
+                        category: 'sync'
+                    });
+                }
             });
     }
 
@@ -1135,6 +2001,11 @@
     function saveToLocal() {
         localStorage.setItem('finance_data', JSON.stringify(window.dataStore));
         localStorage.setItem('finance_config', JSON.stringify(window.configStore));
+        
+        if (window.configStore.settings.logsEnabled) {
+            localStorage.setItem('finance_logs', JSON.stringify(window.logsStore));
+        }
+        
         window.lastBackup = new Date();
         updateBackupStatus();
     }
@@ -1151,10 +2022,14 @@
         
         if (config.settings) {
             document.getElementById('autoBackup').value = config.settings.autoBackup || 10;
+            document.getElementById('enableLogs').checked = config.settings.logsEnabled !== false;
+            document.getElementById('logSensitiveData').checked = config.settings.logSensitiveData || false;
         }
     }
 
     window.saveConfig = function() {
+        const oldConfig = { ...window.configStore };
+        
         window.configStore = {
             bank: parseFloat(document.getElementById('bankBalance').value) || 0,
             mi11: parseFloat(document.getElementById('usdMi11').value) || 0,
@@ -1162,8 +2037,76 @@
             n7: parseFloat(document.getElementById('usdN7').value) || 0,
             alpha: parseFloat(document.getElementById('usdAlpha').value) || 10206,
             rate: parseFloat(document.getElementById('exchangeRate').value) || 27000,
-            settings: window.configStore.settings || { autoBackup: 10, firebaseEnabled: true }
+            settings: window.configStore.settings || { 
+                autoBackup: 10, 
+                firebaseEnabled: true,
+                logsEnabled: true,
+                logSensitiveData: false
+            }
         };
+        
+        // Ghi log thay đổi cấu hình
+        if (window.configStore.settings.logsEnabled) {
+            const changes = [];
+            
+            if (oldConfig.bank !== window.configStore.bank) {
+                changes.push({
+                    field: 'bank_balance',
+                    oldValue: oldConfig.bank,
+                    newValue: window.configStore.bank
+                });
+            }
+            
+            if (oldConfig.mi11 !== window.configStore.mi11) {
+                changes.push({
+                    field: 'usd_mi11',
+                    oldValue: oldConfig.mi11,
+                    newValue: window.configStore.mi11
+                });
+            }
+            
+            if (oldConfig.k60 !== window.configStore.k60) {
+                changes.push({
+                    field: 'usd_k60',
+                    oldValue: oldConfig.k60,
+                    newValue: window.configStore.k60
+                });
+            }
+            
+            if (oldConfig.n7 !== window.configStore.n7) {
+                changes.push({
+                    field: 'usd_n7',
+                    oldValue: oldConfig.n7,
+                    newValue: window.configStore.n7
+                });
+            }
+            
+            if (oldConfig.alpha !== window.configStore.alpha) {
+                changes.push({
+                    field: 'alpha_capital',
+                    oldValue: oldConfig.alpha,
+                    newValue: window.configStore.alpha
+                });
+            }
+            
+            if (oldConfig.rate !== window.configStore.rate) {
+                changes.push({
+                    field: 'exchange_rate',
+                    oldValue: oldConfig.rate,
+                    newValue: window.configStore.rate
+                });
+            }
+            
+            // Ghi log cho từng thay đổi
+            changes.forEach(change => {
+                addLog('config_change', {
+                    field: change.field,
+                    oldValue: change.oldValue,
+                    newValue: change.newValue,
+                    category: 'config'
+                });
+            });
+        }
         
         syncConfig();
         updateCalculations();
@@ -1237,6 +2180,7 @@
         window.undoStack.push({
             data: JSON.parse(JSON.stringify(window.dataStore)),
             config: JSON.parse(JSON.stringify(window.configStore)),
+            logs: JSON.parse(JSON.stringify(window.logsStore)),
             timestamp: new Date()
         });
         
@@ -1252,15 +2196,27 @@
             const prev = window.undoStack.pop();
             window.dataStore = prev.data;
             window.configStore = prev.config;
+            window.logsStore = prev.logs || [];
             
             updateConfigUI();
             syncToCloud();
             syncConfig();
+            saveLogsToStorage();
             updateCalculations();
             renderCal();
             renderUndoBtn();
+            renderLogs();
             
             showStatus("↩ Đã hoàn tác", 2000);
+            
+            // Ghi log hoàn tác
+            if (window.configStore.settings.logsEnabled) {
+                addLog('system', {
+                    message: 'Đã hoàn tác thao tác',
+                    undoCount: window.undoStack.length,
+                    category: 'system'
+                });
+            }
         }
     }
 
@@ -1283,6 +2239,18 @@
         const k = getTodayKey();
         const cur = window.dataStore[k] || { in: 0, out: 0 };
         window.dataStore[k] = { in: cur.in, out: parseFloat(cur.out) + 10 };
+        
+        // Ghi log
+        if (window.configStore.settings.logsEnabled) {
+            addLog('transaction_add', {
+                date: k,
+                in: 0,
+                out: 10,
+                category: 'transaction',
+                message: 'Thêm chi phí 10$ tự động'
+            });
+        }
+        
         syncToCloud();
         updateCalculations();
         renderCal();
@@ -1307,6 +2275,17 @@
             out: parseFloat(cur.out) + exp
         };
         
+        // Ghi log
+        if (window.configStore.settings.logsEnabled) {
+            addLog('transaction_add', {
+                date: k,
+                in: inc,
+                out: exp,
+                category: 'transaction',
+                message: `Thêm giao dịch: +${inc}$, -${exp}$`
+            });
+        }
+        
         document.getElementById('quickIn').value = '';
         document.getElementById('quickOut').value = '';
         
@@ -1325,7 +2304,22 @@
             pushUndo();
             
             const inp = document.getElementById(inputId);
-            inp.value = (parseFloat(inp.value) || 0) + add;
+            const oldValue = parseFloat(inp.value) || 0;
+            const newValue = oldValue + add;
+            inp.value = newValue;
+            
+            // Ghi log
+            if (window.configStore.settings.logsEnabled) {
+                const fieldName = inputId.replace('usd', 'USD ');
+                addLog('usd_change', {
+                    field: fieldName,
+                    oldValue: oldValue,
+                    newValue: newValue,
+                    change: add,
+                    category: 'usd',
+                    message: `Thay đổi ${fieldName}: ${oldValue}$ → ${newValue}$ (+${add}$)`
+                });
+            }
             
             saveConfig();
             showStatus(`✅ Đã thêm ${add}$`, 1500);
@@ -1344,8 +2338,20 @@
             pushUndo();
             
             const inp = document.getElementById('bankBalance');
-            const cur = parseFloat(inp.value) || 0;
-            inp.value = dir > 0 ? cur + amt : cur - amt;
+            const oldValue = parseFloat(inp.value) || 0;
+            const newValue = dir > 0 ? oldValue + amt : oldValue - amt;
+            inp.value = newValue;
+            
+            // Ghi log
+            if (window.configStore.settings.logsEnabled) {
+                addLog('bank_change', {
+                    oldValue: oldValue,
+                    newValue: newValue,
+                    change: dir > 0 ? amt : -amt,
+                    category: 'bank',
+                    message: `Thay đổi số dư ngân hàng: ${formatCurrency(oldValue, 'VND')} → ${formatCurrency(newValue, 'VND')} (${dir > 0 ? '+' : '-'}${formatCurrency(amt, 'VND')})`
+                });
+            }
             
             saveConfig();
             showStatus(`✅ Đã ${dir > 0 ? 'cộng' : 'trừ'} ${formatCurrency(amt, 'VND')}`, 1500);
@@ -1437,11 +2443,38 @@
         
         const inc = parseFloat(document.getElementById('modalIn').value) || 0;
         const exp = parseFloat(document.getElementById('modalOut').value) || 0;
+        const oldData = window.dataStore[selKey] || { in: 0, out: 0 };
         
         if (inc === 0 && exp === 0) {
+            // Xóa giao dịch
             delete window.dataStore[selKey];
+            
+            // Ghi log xóa
+            if (window.configStore.settings.logsEnabled) {
+                addLog('transaction_delete', {
+                    date: selKey,
+                    oldIn: oldData.in,
+                    oldOut: oldData.out,
+                    category: 'transaction',
+                    message: `Xóa giao dịch ngày ${selKey}`
+                });
+            }
         } else {
+            // Cập nhật giao dịch
             window.dataStore[selKey] = { in: inc, out: exp };
+            
+            // Ghi log sửa
+            if (window.configStore.settings.logsEnabled) {
+                addLog('transaction_edit', {
+                    date: selKey,
+                    oldIn: oldData.in || 0,
+                    oldOut: oldData.out || 0,
+                    newIn: inc,
+                    newOut: exp,
+                    category: 'transaction',
+                    message: `Sửa giao dịch ngày ${selKey}: ${oldData.in || 0}$/${oldData.out || 0}$ → ${inc}$/${exp}$`
+                });
+            }
         }
         
         syncToCloud();
@@ -1456,6 +2489,15 @@
         if (!window.dataStore || Object.keys(window.dataStore).length === 0) {
             showStatus("❌ Chưa có dữ liệu!", 3000);
             return;
+        }
+        
+        // Ghi log xuất Excel
+        if (window.configStore.settings.logsEnabled) {
+            addLog('system', {
+                action: 'export_excel',
+                category: 'system',
+                message: 'Xuất báo cáo Excel'
+            });
         }
         
         const { bank, mi11, k60, n7, alpha, rate } = window.configStore;
@@ -1562,9 +2604,24 @@
                         window.configStore = data.configStore;
                         updateConfigUI();
                     }
+                    if (data.logs && Array.isArray(data.logs)) {
+                        window.logsStore = data.logs;
+                    }
+                    
+                    // Ghi log import
+                    if (window.configStore.settings.logsEnabled) {
+                        addLog('system', {
+                            action: 'import_data',
+                            category: 'system',
+                            message: `Nhập dữ liệu từ file: ${file.name}`,
+                            fileSize: file.size,
+                            fileType: file.type
+                        });
+                    }
                     
                     syncToCloud();
                     syncConfig();
+                    saveLogsToStorage();
                     updateCalculations();
                     renderCal();
                     updateChart();
@@ -1573,6 +2630,16 @@
                 }
             } catch (error) {
                 alert("Lỗi đọc file: " + error.message);
+                
+                // Ghi log lỗi
+                if (window.configStore.settings.logsEnabled) {
+                    addLog('system', {
+                        action: 'import_error',
+                        category: 'system',
+                        message: `Lỗi nhập dữ liệu: ${error.message}`,
+                        fileName: file.name
+                    });
+                }
             }
         };
         reader.readAsText(file);
@@ -1585,9 +2652,19 @@
         const backup = {
             dataStore: window.dataStore,
             configStore: window.configStore,
+            logs: window.logsStore,
             timestamp: new Date().toISOString(),
             version: '1.0'
         };
+        
+        // Ghi log backup
+        if (window.configStore.settings.logsEnabled) {
+            addLog('system', {
+                action: 'manual_backup',
+                category: 'system',
+                message: 'Tạo backup thủ công'
+            });
+        }
         
         const dataStr = JSON.stringify(backup, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1748,7 +2825,6 @@
     }
 
     // ========== SETTINGS FUNCTIONS ==========
-    // SỬA LỖI Ở ĐÂY: Thêm hàm switchTab vào window object
     window.switchTab = function(tabName) {
         // Hide all tabs
         document.querySelectorAll('.tab-content').forEach(tab => {
@@ -1774,6 +2850,13 @@
             setTimeout(() => {
                 if (window.updateChart) updateChart();
                 if (window.updateYearSummary) updateYearSummary();
+            }, 100);
+        }
+        
+        // Update logs if switching to logs tab
+        if (tabName === 'logs') {
+            setTimeout(() => {
+                renderLogs();
             }, 100);
         }
     }
@@ -1815,6 +2898,15 @@
         window.firebaseEnabled = !window.firebaseEnabled;
         window.configStore.settings.firebaseEnabled = window.firebaseEnabled;
         
+        // Ghi log
+        if (window.configStore.settings.logsEnabled) {
+            addLog('system', {
+                action: 'toggle_firebase',
+                category: 'system',
+                message: window.firebaseEnabled ? 'Bật đồng bộ Firebase' : 'Tắt đồng bộ Firebase'
+            });
+        }
+        
         if (window.firebaseEnabled) {
             initFirebase();
         } else {
@@ -1836,19 +2928,40 @@
         if (confirm(`Bạn có chắc muốn xóa tất cả dữ liệu của tháng ${currentMonth}/${currentYear}?`)) {
             pushUndo();
             
+            // Đếm số giao dịch sẽ bị xóa
+            let deleteCount = 0;
+            const deletedTransactions = [];
+            
             // Remove all entries for current month
             for (let key in window.dataStore) {
                 const [year, month] = key.split('-').map(Number);
                 if (year === currentYear && month === currentMonth) {
+                    deletedTransactions.push({
+                        date: key,
+                        data: window.dataStore[key]
+                    });
                     delete window.dataStore[key];
+                    deleteCount++;
                 }
+            }
+            
+            // Ghi log
+            if (window.configStore.settings.logsEnabled) {
+                addLog('system', {
+                    action: 'clear_month_data',
+                    category: 'system',
+                    message: `Xóa ${deleteCount} giao dịch tháng ${currentMonth}/${currentYear}`,
+                    deletedCount: deleteCount,
+                    month: currentMonth,
+                    year: currentYear
+                });
             }
             
             syncToCloud();
             updateCalculations();
             renderCal();
             updateChart();
-            showStatus(`🗑️ Đã xóa dữ liệu tháng ${currentMonth}/${currentYear}`, 3000);
+            showStatus(`🗑️ Đã xóa ${deleteCount} giao dịch tháng ${currentMonth}/${currentYear}`, 3000);
         }
     }
 
@@ -1857,6 +2970,11 @@
             const confirmText = prompt("Nhập 'DELETE' để xác nhận xóa tất cả dữ liệu:");
             if (confirmText === 'DELETE') {
                 pushUndo();
+                
+                // Lưu số lượng dữ liệu trước khi xóa
+                const dataCount = Object.keys(window.dataStore).length;
+                const logCount = window.logsStore.length;
+                
                 window.dataStore = {};
                 window.configStore = {
                     bank: 0,
@@ -1868,12 +2986,24 @@
                     settings: window.configStore.settings
                 };
                 
+                // Ghi log xóa tất cả
+                if (window.configStore.settings.logsEnabled) {
+                    addLog('system', {
+                        action: 'clear_all_data',
+                        category: 'system',
+                        message: `Xóa tất cả dữ liệu: ${dataCount} giao dịch, ${logCount} logs`,
+                        deletedTransactions: dataCount,
+                        deletedLogs: logCount
+                    });
+                }
+                
                 updateConfigUI();
                 syncToCloud();
                 syncConfig();
                 updateCalculations();
                 renderCal();
                 updateChart();
+                renderLogs();
                 
                 showStatus("🗑️ Đã xóa tất cả dữ liệu", 3000);
             }
@@ -1883,6 +3013,16 @@
     window.restoreData = function() {
         if (confirm("Khôi phục dữ liệu mẫu? Dữ liệu hiện tại sẽ bị thay thế.")) {
             pushUndo();
+            
+            // Ghi log khôi phục
+            if (window.configStore.settings.logsEnabled) {
+                addLog('system', {
+                    action: 'restore_sample_data',
+                    category: 'system',
+                    message: 'Khôi phục dữ liệu mẫu'
+                });
+            }
+            
             window.dataStore = { ...SAMPLE_DATA };
             syncToCloud();
             updateCalculations();
@@ -1911,14 +3051,38 @@
         // Setup auto-backup
         updateBackupSetting();
         
+        // Load logs
+        loadLogsFromStorage();
+        
         // Initial render
         renderCal();
         updateCalculations();
         updateBackupStatus();
         
+        // Ghi log khởi động
+        if (window.configStore.settings.logsEnabled) {
+            addLog('system', {
+                action: 'app_start',
+                category: 'system',
+                message: 'Ứng dụng khởi động',
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent
+            });
+        }
+        
         // Auto-save on page unload
         window.addEventListener('beforeunload', () => {
             saveToLocal();
+            
+            // Ghi log đóng ứng dụng
+            if (window.configStore.settings.logsEnabled) {
+                addLog('system', {
+                    action: 'app_close',
+                    category: 'system',
+                    message: 'Ứng dụng đóng'
+                });
+                saveLogsToStorage();
+            }
         });
         
         // Auto-save every minute if there are changes
