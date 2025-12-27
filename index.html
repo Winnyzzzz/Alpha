@@ -1247,18 +1247,101 @@
     }
 
     window.saveConfig = function() {
-        window.configStore = {
-            bank: parseFloat(document.getElementById('bankBalance').value) || 0,
-            mi11: parseFloat(document.getElementById('usdMi11').value) || 0,
-            k60: parseFloat(document.getElementById('usdK60').value) || 0,
-            n7: parseFloat(document.getElementById('usdN7').value) || 0,
-            alpha: parseFloat(document.getElementById('usdAlpha').value) || 10206,
-            rate: parseFloat(document.getElementById('exchangeRate').value) || 27000
-        };
-        
-        syncConfig();
-        updateCalculations();
-        showStatus("💾 Đã lưu cấu hình", 1500);
+    // Lưu giá trị cũ để so sánh
+    const oldBank = window.configStore.bank || 0;
+    const oldMi11 = window.configStore.mi11 || 0;
+    const oldK60 = window.configStore.k60 || 0;
+    const oldN7 = window.configStore.n7 || 0;
+    const oldAlpha = window.configStore.alpha || 10206;
+    const oldRate = window.configStore.rate || 27000;
+    
+    // Lấy giá trị mới từ input
+    const newBank = parseFloat(document.getElementById('bankBalance').value) || 0;
+    const newMi11 = parseFloat(document.getElementById('usdMi11').value) || 0;
+    const newK60 = parseFloat(document.getElementById('usdK60').value) || 0;
+    const newN7 = parseFloat(document.getElementById('usdN7').value) || 0;
+    const newAlpha = parseFloat(document.getElementById('usdAlpha').value) || 10206;
+    const newRate = parseFloat(document.getElementById('exchangeRate').value) || 27000;
+    
+    // Cập nhật configStore
+    window.configStore = {
+        bank: newBank,
+        mi11: newMi11,
+        k60: newK60,
+        n7: newN7,
+        alpha: newAlpha,
+        rate: newRate
+    };
+    
+    // GHI LOGS KHI CÓ THAY ĐỔI
+    
+    // Log thay đổi số dư Bank
+    if (oldBank !== newBank) {
+        addLog('bank_change', {
+            oldValue: oldBank,
+            newValue: newBank,
+            change: newBank - oldBank,
+            message: `Thay đổi số dư ngân hàng: ${formatCurrency(oldBank, 'VND')} → ${formatCurrency(newBank, 'VND')}`
+        });
+    }
+    
+    // Log thay đổi USD Mi 11
+    if (oldMi11 !== newMi11) {
+        addLog('usd_change', {
+            field: 'USD Mi 11',
+            oldValue: oldMi11,
+            newValue: newMi11,
+            change: newMi11 - oldMi11,
+            message: `Thay đổi USD Mi 11: ${oldMi11}$ → ${newMi11}$`
+        });
+    }
+    
+    // Log thay đổi USD K60
+    if (oldK60 !== newK60) {
+        addLog('usd_change', {
+            field: 'USD K60',
+            oldValue: oldK60,
+            newValue: newK60,
+            change: newK60 - oldK60,
+            message: `Thay đổi USD K60: ${oldK60}$ → ${newK60}$`
+        });
+    }
+    
+    // Log thay đổi USD N7
+    if (oldN7 !== newN7) {
+        addLog('usd_change', {
+            field: 'USD N7',
+            oldValue: oldN7,
+            newValue: newN7,
+            change: newN7 - oldN7,
+            message: `Thay đổi USD N7: ${oldN7}$ → ${newN7}$`
+        });
+    }
+    
+    // Log thay đổi vốn Alpha (nếu cần)
+    if (oldAlpha !== newAlpha) {
+        addLog('alpha_change', {
+            oldValue: oldAlpha,
+            newValue: newAlpha,
+            change: newAlpha - oldAlpha,
+            message: `Thay đổi vốn Alpha: ${oldAlpha}$ → ${newAlpha}$`
+        });
+    }
+    
+    // Log thay đổi tỷ giá (nếu cần)
+    if (oldRate !== newRate) {
+        addLog('rate_change', {
+            oldValue: oldRate,
+            newValue: newRate,
+            change: newRate - oldRate,
+            message: `Thay đổi tỷ giá: ${oldRate} → ${newRate}`
+        });
+    }
+    
+    // Đồng bộ lên Firebase
+    syncConfig();
+    updateCalculations();
+    showStatus("💾 Đã lưu cấu hình", 1500);
     }
 
     // ========== TÍNH TOÁN TÀI CHÍNH ==========
@@ -1425,73 +1508,47 @@
     }
 
     window.addUSD = function(inputId) {
-        const val = prompt("Nhập số USD muốn cộng thêm:", "0");
-        if (val === null) return;
+    const val = prompt("Nhập số USD muốn cộng thêm:", "0");
+    if (val === null) return;
+    
+    try {
+        const add = validateNumber(val, "Số USD");
+        pushUndo();
         
-        try {
-            const add = validateNumber(val, "Số USD");
-            pushUndo();
-            
-            const inp = document.getElementById(inputId);
-            const oldValue = parseFloat(inp.value) || 0;
-            const newValue = oldValue + add;
-            inp.value = newValue;
-            
-            // Cập nhật configStore
-            if (inputId === 'usdMi11') window.configStore.mi11 = newValue;
-            if (inputId === 'usdK60') window.configStore.k60 = newValue;
-            if (inputId === 'usdN7') window.configStore.n7 = newValue;
-            
-            // Ghi log
-            const fieldName = inputId.replace('usd', 'USD ');
-            addLog('usd_change', {
-                field: fieldName,
-                oldValue: oldValue,
-                newValue: newValue,
-                change: add,
-                message: `Thay đổi ${fieldName}: ${oldValue}$ → ${newValue}$ (+${add}$)`
-            });
-            
-            syncConfig();
-            updateCalculations();
-            showStatus(`✅ Đã thêm ${add}$`, 1500);
-        } catch (error) {
-            alert(error.message);
-        }
+        const inp = document.getElementById(inputId);
+        const oldValue = parseFloat(inp.value) || 0;
+        const newValue = oldValue + add;
+        inp.value = newValue;
+        
+        // GỌI saveConfig() để tự động ghi logs
+        saveConfig();
+        showStatus(`✅ Đã thêm ${add}$`, 1500);
+    } catch (error) {
+        alert(error.message);
     }
+}
 
     window.changeBank = function(dir) {
-        const action = dir > 0 ? "CỘNG" : "TRỪ";
-        const val = prompt(`Nhập số VND muốn ${action}:`, "0");
-        if (val === null) return;
+    const action = dir > 0 ? "CỘNG" : "TRỪ";
+    const val = prompt(`Nhập số VND muốn ${action}:`, "0");
+    if (val === null) return;
+    
+    try {
+        const amt = validateNumber(val, "Số tiền");
+        pushUndo();
         
-        try {
-            const amt = validateNumber(val, "Số tiền");
-            pushUndo();
-            
-            const inp = document.getElementById('bankBalance');
-            const oldValue = parseFloat(inp.value) || 0;
-            const newValue = dir > 0 ? oldValue + amt : oldValue - amt;
-            inp.value = newValue;
-            
-            // Cập nhật configStore
-            window.configStore.bank = newValue;
-            
-            // Ghi log
-            addLog('bank_change', {
-                oldValue: oldValue,
-                newValue: newValue,
-                change: dir > 0 ? amt : -amt,
-                message: `Thay đổi số dư ngân hàng: ${formatCurrency(oldValue, 'VND')} → ${formatCurrency(newValue, 'VND')} (${dir > 0 ? '+' : '-'}${formatCurrency(amt, 'VND')})`
-            });
-            
-            syncConfig();
-            updateCalculations();
-            showStatus(`✅ Đã ${dir > 0 ? 'cộng' : 'trừ'} ${formatCurrency(amt, 'VND')}`, 1500);
-        } catch (error) {
-            alert(error.message);
-        }
+        const inp = document.getElementById('bankBalance');
+        const oldValue = parseFloat(inp.value) || 0;
+        const newValue = dir > 0 ? oldValue + amt : oldValue - amt;
+        inp.value = newValue;
+        
+        // GỌI saveConfig() để tự động ghi logs
+        saveConfig();
+        showStatus(`✅ Đã ${dir > 0 ? 'cộng' : 'trừ'} ${formatCurrency(amt, 'VND')}`, 1500);
+    } catch (error) {
+        alert(error.message);
     }
+}
 
     // ========== CALENDAR FUNCTIONS ==========
     window.changeMonth = function(s) {
